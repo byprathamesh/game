@@ -231,76 +231,29 @@
       ctx.setLineDash([]);
       ctx.restore();
     }
-  grad.addColorStop(0.5, '#181e3c');
-  grad.addColorStop(1, '#000');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, w, h);
-  // Animated starfield
-  drawStarfield(1);
-  // Glowing road
-  ctx.save();
-  ctx.shadowColor = '#0ff';
-  ctx.shadowBlur = 36;
-  ctx.fillStyle = '#222';
-  ctx.fillRect(w*0.21, 0, w*0.58, h);
-  ctx.restore();
-  // Animated road texture
-  let scrollOffset = roadScroll % 32;
-  for (let i = -32; i < h; i += 32) {
-    ctx.fillStyle = i % 64 === 0 ? '#181818' : '#191919';
-    ctx.fillRect(w*0.21, i + scrollOffset, w*0.58, 16);
-  }
-  // Pixelated lane markings (2 solid lines for 3 lanes)
-  ctx.save();
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 4;
-  ctx.setLineDash([14, 10]); // shorter dashes for pixel look
-  let roadLeft = Math.round(w * 0.18);
-  let roadRight = Math.round(w * 0.82);
-  let laneWidth = Math.round((roadRight - roadLeft) / 3);
-  for (let i = 1; i < 3; i++) {
-    let x = Math.round(roadLeft + i * laneWidth);
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, h);
-    ctx.stroke();
-  }
-  ctx.restore();
-  // Road edge lines
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 7;
-  ctx.beginPath();
-  ctx.moveTo(w*0.21, 0);
-  ctx.lineTo(w*0.21, h);
-  ctx.moveTo(w*0.79, 0);
-  ctx.lineTo(w*0.79, h);
-  ctx.moveTo(w/2, 0);
-  ctx.lineTo(w/2, h);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
-}
-function drawPlayer() {
-  ctx.save();
-  ctx.translate(Math.round(player.x), Math.round(player.y));
-  // Pixel car body
-  ctx.fillStyle = player.color;
-  ctx.fillRect(-16, -28, 32, 56);
-  // Pixel windows
-  ctx.fillStyle = '#7ec7ff';
-  ctx.fillRect(-10, -20, 20, 12);
-  // Pixel headlights
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(-8, 24, 6, 8);
-  ctx.fillRect(2, 24, 6, 8);
-  // Pixel wheels
-  ctx.fillStyle = '#222';
-  ctx.fillRect(-14, -24, 4, 8);
-  ctx.fillRect(10, -24, 4, 8);
-  ctx.fillRect(-14, 16, 4, 8);
-  ctx.fillRect(10, 16, 4, 8);
-  ctx.restore();
-}
+
+    function drawPlayer() {
+      ctx.save();
+      ctx.translate(Math.round(player.x), Math.round(player.y));
+      // Pixel car body
+      ctx.fillStyle = player.color;
+      ctx.fillRect(-16, -28, 32, 56);
+      // Pixel windows
+      ctx.fillStyle = '#7ec7ff';
+      ctx.fillRect(-10, -20, 20, 12);
+      // Pixel headlights
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(-8, 24, 6, 8);
+      ctx.fillRect(2, 24, 6, 8);
+      // Pixel wheels
+      ctx.fillStyle = '#222';
+      ctx.fillRect(-14, -24, 4, 8);
+      ctx.fillRect(10, -24, 4, 8);
+      ctx.fillRect(-14, 16, 4, 8);
+      ctx.fillRect(10, 16, 4, 8);
+      ctx.restore();
+    }
+
     function drawObstacle(obs) {
   ctx.save();
   ctx.translate(Math.round(obs.x), Math.round(obs.y));
