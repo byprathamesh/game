@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Night Driver</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to bottom, #101020 60%, #000 100%);
+      min-height: 100vh;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #gameContainer {
+      position: relative;
+      width: 360px;
+      height: 640px;
+      max-width: 100vw;
+      max-height: 100vh;
+      box-shadow: 0 0 32px #0ff8, 0 0 8px #00f4, 0 0 0 #000;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #111;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 1.3rem;
+      letter-spacing: 1px;
+      z-index: 2;
+      user-select: none;
+      text-shadow: 0 0 4px #0ff, 0 0 8px #00f, 0 0 2px #fff;
+    }
+    #gameOverScreen {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(10,10,40,0.92);
+      color: #fff;
+      z-index: 10;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      text-shadow: 0 0 8px #0ff, 0 0 2px #fff;
+    }
+    #gameOverScreen button {
+      margin-top: 24px;
+      padding: 12px 32px;
+      font-size: 1.2rem;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(90deg,#0ff,#08f 80%);
+      color: #111;
+      font-weight: bold;
+      box-shadow: 0 0 8px #0ff;
+      cursor: pointer;
+    }
+    #mobileControls {
+      position: absolute;
+      bottom: 18px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      gap: 32px;
+      z-index: 3;
+      pointer-events: none;
+    }
+    .ctrl-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba(0,255,255,0.12);
+      border: 2px solid #0ff;
+      color: #0ff;
+      font-size: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 8px #0ff8;
+      pointer-events: auto;
+      user-select: none;
+      touch-action: none;
+      transition: background 0.2s;
+    }
+    .ctrl-btn:active {
+      background: rgba(0,255,255,0.32);
+    }
+    @media (max-width: 500px) {
+      #gameContainer { width: 98vw; height: 70vw; min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="360" height="640"></canvas>
+    <div id="hud">
+      <span id="score">0</span> m
+      <span style="margin-left:16px; font-size:0.9em;">Best: <span id="bestScore">0</span></span>
+    </div>
+    <div id="gameOverScreen">
+      <div style="margin-top: 120px;">Game Over<br><span id="finalScore">0</span> m</div>
+      <button id="restartBtn">Restart</button>
+    </div>
+    <div id="mobileControls">
+      <button class="ctrl-btn" id="leftBtn">⟵</button>
+      <button class="ctrl-btn" id="rightBtn">⟶</button>
+    </div>
+  </div>
+  <script>
+    // --- Game Constants ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    // --- Game State ---
+    let player = { x: w/2, y: h-90, width: 38, height: 64, speed: 6, color: '#0ff' };
+    let obstacles = [], obstacleTimer = 0, obstacleInterval = 1100, minInterval = 500;
+    let distance = 0, score = 0, bestScore = 0;
+    let gameOver = false;
+    let leftPressed = false, rightPressed = false;
+    // --- Controls ---
+    function resetControls() { leftPressed = rightPressed = false; }
+    document.addEventListener('keydown', e => {
+      if (e.key==='ArrowLeft'||e.key==='a'||e.key==='A') leftPressed = true;
+      if (e.key==='ArrowRight'||e.key==='d'||e.key==='D') rightPressed = true;
+      if (gameOver && (e.key===' '||e.key==='Enter')) restartGame();
+    });
+    document.addEventListener('keyup', e => {
+      if (e.key==='ArrowLeft'||e.key==='a'||e.key==='A') leftPressed = false;
+      if (e.key==='ArrowRight'||e.key==='d'||e.key==='D') rightPressed = false;
+    });
+    // --- Mobile Touch Controls ---
+    document.getElementById('leftBtn').addEventListener('touchstart', e => { leftPressed = true; e.preventDefault(); });
+    document.getElementById('leftBtn').addEventListener('touchend', e => { leftPressed = false; e.preventDefault(); });
+    document.getElementById('leftBtn').addEventListener('mousedown', e => { leftPressed = true; });
+    document.getElementById('leftBtn').addEventListener('mouseup', e => { leftPressed = false; });
+    document.getElementById('leftBtn').addEventListener('mouseleave', e => { leftPressed = false; });
+    document.getElementById('rightBtn').addEventListener('touchstart', e => { rightPressed = true; e.preventDefault(); });
+    document.getElementById('rightBtn').addEventListener('touchend', e => { rightPressed = false; e.preventDefault(); });
+    document.getElementById('rightBtn').addEventListener('mousedown', e => { rightPressed = true; });
+    document.getElementById('rightBtn').addEventListener('mouseup', e => { rightPressed = false; });
+    document.getElementById('rightBtn').addEventListener('mouseleave', e => { rightPressed = false; });
+    // --- Game Functions ---
+    function restartGame() {
+      player.x = w/2; distance = 0; score = 0; obstacles = [];
+      gameOver = false; obstacleInterval = 1100; resetControls();
+      document.getElementById('gameOverScreen').style.display = 'none';
+    }
+    document.getElementById('restartBtn').onclick = restartGame;
+    function drawRoad() {
+      // Road (pseudo-3D)
+      ctx.save();
+      ctx.fillStyle = '#222';
+      ctx.fillRect(0, 0, w, h);
+      // Shoulders
+      ctx.fillStyle = '#0ff2';
+      ctx.fillRect(0, 0, w*0.18, h);
+      ctx.fillRect(w*0.82, 0, w*0.18, h);
+      // Road
+      ctx.fillStyle = '#222';
+      ctx.beginPath();
+      ctx.moveTo(w*0.18, 0);
+      ctx.lineTo(w*0.82, 0);
+      ctx.lineTo(w*0.7, h);
+      ctx.lineTo(w*0.3, h);
+      ctx.closePath();
+      ctx.fill();
+      // Neon lane lines
+      ctx.strokeStyle = '#0ff';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([24, 18]);
+      ctx.beginPath();
+      ctx.moveTo(w/2, 0);
+      ctx.lineTo(w/2, h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+    function drawPlayer() {
+      ctx.save();
+      ctx.shadowColor = '#0ff';
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x-player.width/2, player.y-player.height/2, player.width, player.height);
+      ctx.restore();
+    }
+    function drawObstacle(obs) {
+      ctx.save();
+      ctx.shadowColor = obs.color;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = obs.color;
+      ctx.fillRect(obs.x-obs.width/2, obs.y-obs.height/2, obs.width, obs.height);
+      ctx.restore();
+    }
+    function updateObstacles(dt) {
+      for (let obs of obstacles) obs.y += obs.speed * dt;
+      obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
+    }
+    function spawnObstacle() {
+      const lane = Math.floor(Math.random()*3);
+      const laneX = w*0.3 + lane*w*0.2;
+      obstacles.push({
+        x: laneX, y: -40, width: 36, height: 36+Math.random()*20,
+        speed: 3.2 + Math.random()*2 + distance/700,
+        color: ['#f33','#ff0','#0ff'][Math.floor(Math.random()*3)]
+      });
+    }
+    function checkCollision(a, b) {
+      return Math.abs(a.x-b.x) < (a.width+b.width)/2 && Math.abs(a.y-b.y) < (a.height+b.height)/2;
+    }
+    function update(dt) {
+      // Player movement
+      if (leftPressed) player.x -= player.speed;
+      if (rightPressed) player.x += player.speed;
+      // Clamp to road
+      player.x = Math.max(w*0.21 + player.width/2, Math.min(w*0.79 - player.width/2, player.x));
+      // Obstacles
+      updateObstacles(dt);
+      // Spawn
+      obstacleTimer += dt*1000;
+      if (obstacleTimer > obstacleInterval) {
+        obstacleTimer = 0;
+        spawnObstacle();
+        if (obstacleInterval > minInterval) obstacleInterval -= 2;
+      }
+      // Collision
+      for (let obs of obstacles) {
+        if (checkCollision(player, obs)) {
+          gameOver = true;
+          document.getElementById('finalScore').textContent = Math.floor(distance);
+          document.getElementById('gameOverScreen').style.display = 'flex';
+          if (score > bestScore) {
+            bestScore = score;
+            localStorage.setItem('nightdriver_best', bestScore);
+          }
+          document.getElementById('bestScore').textContent = bestScore;
+        }
+      }
+      // Score
+      if (!gameOver) {
+        distance += dt*player.speed*1.5;
+        score = Math.floor(distance);
+        document.getElementById('score').textContent = score;
+      }
+    }
+    function draw() {
+      drawRoad();
+      drawPlayer();
+      for (let obs of obstacles) drawObstacle(obs);
+    }
+    // --- Main Loop ---
+    let last = performance.now();
+    function loop(now) {
+      let dt = Math.min(0.06, (now-last)/1000);
+      last = now;
+      if (!gameOver) update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+    // --- Init ---
+    function init() {
+      bestScore = Number(localStorage.getItem('nightdriver_best')) || 0;
+      document.getElementById('bestScore').textContent = bestScore;
+      restartGame();
+      loop(performance.now());
+    }
+    init();
+  </script>
+</body>
+</html>
