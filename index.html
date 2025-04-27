@@ -511,34 +511,25 @@ function drawRoad() {
     }
     document.getElementById('bestScore').textContent = bestScore;
   } else if (obs.type === 'car') {
-    // Car collision: strong shake and penalty, but NOT game over
-    triggerShake(1.2);
-    score = Math.max(0, score - 25);
-    obs.x += (Math.random() > 0.5 ? 1 : -1) * 40; // nudge car aside
-    obs.y -= 18; // push away
+    // Car collision: penalty, but NOT game over (no shake)
+        score = Math.max(0, score - 25);
+        obs.x += (Math.random() > 0.5 ? 1 : -1) * 40; // nudge car aside
+        obs.y -= 18; // push away
   }
 }
   // Near-miss detection (side-by-side, but not colliding)
-  else if (!gameOver && Math.abs(player.y-obs.y) < (player.height+obs.height)/2+16 && Math.abs(player.x-obs.x) > (player.width+obs.width)/2 && Math.abs(player.x-obs.x) < (player.width+obs.width)/2+18) {
-    // Only trigger once per obstacle
-    if (!obs.nearMissed) {
-      obs.nearMissed = true;
-      triggerShake();
-      score += 10; // bonus points
-    }
-  }
-}
-      // Score
-      if (!gameOver) {
-        // Increase speed as you go further
-  player.speed = 10.5 + Math.min(18, distance/110);
-  distance += dt*player.speed*2.25;
-  score = Math.floor(distance);
-  document.getElementById('score').textContent = score;
+      else if (!gameOver && Math.abs(player.y-obs.y) < (player.height+obs.height)/2+16 && Math.abs(player.x-obs.x) > (player.width+obs.width)/2 && Math.abs(player.x-obs.x) < (player.width+obs.width)/2+18) {
+        // Only trigger once per obstacle
+        if (!obs.nearMissed) {
+          obs.nearMissed = true;
+          score += 10; // bonus points
+        }
   // Make obstacles spawn faster as you go
   obstacleInterval = Math.max(minInterval, 700 - distance/2);
       }
     }
+  }
+}
     
     function draw(dt) {
   // 1. Road, neon background, starfield, etc.
