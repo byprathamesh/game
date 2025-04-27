@@ -22,6 +22,23 @@
       overflow: hidden;
     }
     /* Responsive, strict 9:16 portrait aspect for all devices */
+    #score, .score {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      min-width: 80px;
+      background: rgba(0,0,0,0.72);
+      padding: 8px 20px;
+      border-radius: 16px;
+      font-size: 2.1rem;
+      font-weight: bold;
+      color: #fff;
+      box-shadow: 0 2px 8px #0008;
+      text-align: center;
+      letter-spacing: 2px;
+    }
     #gameContainer {
       position: absolute;
       left: 50%;
@@ -42,19 +59,15 @@
       overflow: hidden;
     }
     #gameCanvas {
-  display: block;
-  background: #222;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  width: 100%;
-  height: auto;
-  max-width: 420px;
-  max-height: 84vh;
-  aspect-ratio: 2/3;
-}
-      border: 0;
-      margin: 0;
-      box-shadow: none;
+      display: block;
+      background: #222;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      width: 100%;
+      height: auto;
+      max-width: 420px;
+      max-height: 84vh;
+      aspect-ratio: 2/3;
     }
     #hud {
       position: absolute;
@@ -94,14 +107,15 @@
       cursor: pointer;
     }
     #mobileControls {
-      position: absolute;
-      bottom: 8px;
-      left: 0;
-      width: 100%;
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
       display: flex;
       justify-content: center;
-      gap: 12px;
-      z-index: 10;
+      gap: 18px;
+      z-index: 30;
+      pointer-events: auto;
     }
     .ctrl-btn {
       width: 64px;
@@ -137,45 +151,33 @@
         max-width: 100vw;
         max-height: 100vw;
       }
+      #mobileControls {
+        bottom: 12px;
+        gap: 12px;
+      }
+      #score, .score {
+        font-size: 1.5rem;
+        padding: 6px 10px;
+      }
     }
   </style>
   <script>
-    // Responsive resize logic to maintain 360x640 aspect ratio
-    function resizeGame() {
-      const aspect = 360 / 640;
-      let w = window.innerWidth;
-      let h = window.innerHeight;
-      if (w / h > aspect) {
-        w = h * aspect;
-      } else {
-        h = w / aspect;
-      }
-      const container = document.getElementById('gameContainer');
-      container.style.width = w + 'px';
-      container.style.height = h + 'px';
-      const canvas = container.querySelector('canvas');
-      if (canvas) {
-        canvas.width = 320;
-        canvas.height = 480;
-        canvas.style.width = w + 'px';
-        canvas.style.height = h + 'px';
-      }
-    }
-
+    // No resizeGame: layout is handled by CSS only
   </script>
 </head>
 <body>
+  <div id="score" class="score">0 m</div>
   <div id="gameContainer">
     <canvas id="gameCanvas" width="320" height="480"></canvas>
-    <div id="score" class="score" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:20;min-width:80px;background:rgba(0,0,0,0.72);padding:8px 20px;border-radius:16px;font-size:2.1rem;font-weight:bold;color:#fff;box-shadow:0 2px 8px #0008;text-align:center;letter-spacing:2px;">0 m</div>
     <div id="gameOverScreen">
       <div style="margin-top: 120px;">Game Over<br><span id="finalScore">0</span> m</div>
       <button id="restartBtn">Restart</button>
     </div>
-    <div id="mobileControls">
-      <button class="ctrl-btn" id="leftBtn">⟵</button>
-      <button class="ctrl-btn" id="rightBtn">⟶</button>
-    </div>
+  </div>
+  <div id="score" class="score">0 m</div>
+  <div id="mobileControls">
+    <button class="ctrl-btn" id="leftBtn">⟵</button>
+    <button class="ctrl-btn" id="rightBtn">⟶</button>
   </div>
   <script src="main.js"></script>
     // --- Texture loading (must be global and first) ---
