@@ -271,33 +271,37 @@
       obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
     }
     function spawnObstacle() {
-      // Always leave at least one open lane
-      const lanes = [0, 1, 2];
-      // Randomly pick 1 or 2 lanes to block (never all 3)
-      let blockCount = Math.random() < 0.6 ? 1 : 2;
-      let blocked = [];
-      while (blocked.length < blockCount) {
-        let l = lanes[Math.floor(Math.random()*lanes.length)];
-        if (!blocked.includes(l)) blocked.push(l);
-      }
-      for (let lane of blocked) {
-        const laneX = w*0.3 + lane*w*0.2;
-        // 50% chance to spawn truck, else car
-        if (Math.random() < 0.5) {
-          obstacles.push({
-            x: laneX, y: -50, width: 38, height: 80+Math.random()*20,
-            speed: 4.5 + Math.random()*2 + distance/350,
-            color: '#ff0', type: 'truck'
-          });
-        } else {
-          obstacles.push({
-            x: laneX, y: -40, width: 36, height: 40+Math.random()*10,
-            speed: 5.2 + Math.random()*2 + distance/400,
-            color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
-          });
-        }
-      }
+  // Always leave at least one open lane
+  const lanes = [0, 1, 2];
+  // Decide how many lanes to block (1 or 2, never 3)
+  let blockCount = Math.random() < 0.7 ? 1 : 2;
+  let blocked = [];
+  while (blocked.length < blockCount) {
+    let l = lanes[Math.floor(Math.random()*lanes.length)];
+    if (!blocked.includes(l)) blocked.push(l);
+  }
+  // Prevent overlapping: only spawn if no other obstacle is close in the lane
+  for (let lane of blocked) {
+    const laneX = w*0.3 + lane*w*0.2;
+    // Find the closest obstacle in this lane
+    let tooClose = obstacles.some(o => Math.abs(o.x - laneX) < 10 && o.y < 120);
+    if (tooClose) continue;
+    // 60% truck, 40% car
+    if (Math.random() < 0.6) {
+      obstacles.push({
+        x: laneX, y: -60, width: 38, height: 88+Math.random()*18,
+        speed: 8.5 + Math.random()*2.5 + distance/150, // much faster trucks
+        color: '#ff0', type: 'truck'
+      });
+    } else {
+      obstacles.push({
+        x: laneX, y: -40, width: 36, height: 44+Math.random()*10,
+        speed: 7.2 + Math.random()*2.5 + distance/200,
+        color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
+      });
     }
+  }
+}
     function checkCollision(a, b) {
       return Math.abs(a.x-b.x) < (a.width+b.width)/2 && Math.abs(a.y-b.y) < (a.height+b.height)/2;
     }
@@ -332,12 +336,12 @@
       // Score
       if (!gameOver) {
         // Increase speed as you go further
-        player.speed = 9 + Math.min(15, distance/120);
-        distance += dt*player.speed*2.2;
-        score = Math.floor(distance);
-        document.getElementById('score').textContent = score;
-        // Make obstacles spawn faster as you go
-        obstacleInterval = Math.max(minInterval, 800 - distance/2);
+  player.speed = 10.5 + Math.min(18, distance/110);
+  distance += dt*player.speed*2.25;
+  score = Math.floor(distance);
+  document.getElementById('score').textContent = score;
+  // Make obstacles spawn faster as you go
+  obstacleInterval = Math.max(minInterval, 700 - distance/2);
       }
     }
     function draw() {
