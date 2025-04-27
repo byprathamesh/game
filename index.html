@@ -186,8 +186,9 @@
 
     // --- Game State ---
     let player = { x: w/2, y: h/2, width: 38, height: 64, speed: 15, color: '#0ff' }; // Car in center, even faster
-    let obstacles = [], obstacleTimer = 0, obstacleInterval = 540, minInterval = 120; // even faster spawn, higher min speed
+    let obstacles = [], obstacleTimer = 0, obstacleInterval = 540, minInterval = 90; // even faster spawn, higher min speed
     let distance = 0, score = 0, bestScore = 0;
+    let speedMultiplier = 1; // Increases as distance increases
     let gameOver = false;
     let leftPressed = false, rightPressed = false;
     // --- Controls ---
@@ -343,20 +344,14 @@
   ctx.restore();
 }
     function updateObstacles(dt) {
-      for (let obs of obstacles) obs.y += obs.speed * dt;
-      obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
-    }
+  for (let obs of obstacles) obs.y += obs.speed * dt * speedMultiplier;
+  obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
+}
     function spawnObstacle() {
-  // Always leave at least one open lane (sometimes two for fairness)
+  // Always leave at least one ENTIRE lane open (never block all 3)
   const lanes = [0, 1, 2];
-  // Decide how many lanes to block (1 or 2, never 3)
-  let blockCount = Math.random() < 0.7 ? 2 : 1; // More likely to block 2, so 1 lane open
-  let openLanes = [];
-  while (openLanes.length < (3 - blockCount)) {
-    let l = lanes[Math.floor(Math.random()*lanes.length)];
-    if (!openLanes.includes(l)) openLanes.push(l);
-  }
-  let blocked = lanes.filter(l => !openLanes.includes(l));
+  let openLane = lanes[Math.floor(Math.random()*lanes.length)]; // pick one lane to always keep clear
+  let blocked = lanes.filter(l => l !== openLane);
   // Prevent overlapping: only spawn if no other obstacle is close in the lane
   for (let lane of blocked) {
     const laneX = w*0.3 + lane*w*0.2;
@@ -366,13 +361,13 @@
     if (Math.random() < 0.6) {
       obstacles.push({
         x: laneX, y: -60, width: 38, height: 88+Math.random()*18,
-        speed: 16 + Math.random()*4 + distance/60, // trucks even faster
+        speed: (16 + Math.random()*4 + distance/60) * speedMultiplier, // trucks even faster
         color: '#ff0', type: 'truck'
       });
     } else {
       obstacles.push({
         x: laneX, y: -40, width: 28, height: 38+Math.random()*8, // cars are narrower
-        speed: 14 + Math.random()*4 + distance/90, // cars faster
+        speed: (14 + Math.random()*4 + distance/90) * speedMultiplier, // cars faster
         color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
       });
     }
@@ -384,24 +379,30 @@
     function update(dt) {
   applyShake(dt); // update shake
 
-  roadScroll -= player.speed * 2.6 * dt;
+  // Increase speed multiplier as you go further
+  speedMultiplier = 1 + distance / 900;
+
+  // Player speed scales with multiplier
+  let effectiveSpeed = player.speed * speedMultiplier;
+  roadScroll -= effectiveSpeed * 2.6 * dt;
   if (roadScroll < -60) roadScroll += 60; // Make lane dashes scroll UP for forward feel
-      // Player movement
-      if (leftPressed) player.x -= player.speed;
-      if (rightPressed) player.x += player.speed;
-      // Clamp to road
-      player.x = Math.max(w*0.21 + player.width/2, Math.min(w*0.79 - player.width/2, player.x));
-      // Obstacles
-      updateObstacles(dt);
-      // Spawn
-      obstacleTimer += dt*1000;
-      if (obstacleTimer > obstacleInterval) {
-        obstacleTimer = 0;
-        spawnObstacle();
-        if (obstacleInterval > minInterval) obstacleInterval -= 3.5; // ramp up faster
-      }
-      // Collision
-      for (let obs of obstacles) {
+
+  // Player movement
+  if (leftPressed) player.x -= effectiveSpeed;
+  if (rightPressed) player.x += effectiveSpeed;
+  // Clamp to road
+  player.x = Math.max(w*0.21 + player.width/2, Math.min(w*0.79 - player.width/2, player.x));
+  // Obstacles
+  updateObstacles(dt);
+  // Spawn
+  obstacleTimer += dt*1000 / speedMultiplier; // spawn rate also speeds up
+  if (obstacleTimer > obstacleInterval) {
+    obstacleTimer = 0;
+    spawnObstacle();
+    if (obstacleInterval > minInterval) obstacleInterval -= 3.5 * speedMultiplier; // ramp up faster
+  }
+  // Collision
+  for (let obs of obstacles) {
   if (checkCollision(player, obs)) {
   if (obs.type === 'truck') {
     // Truck collision: game over
