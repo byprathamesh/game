@@ -140,6 +140,17 @@ document.getElementById('rightBtn').addEventListener('mousedown', e => { rightPr
 document.getElementById('rightBtn').addEventListener('mouseup', e => { rightPressed = false; });
 document.getElementById('rightBtn').addEventListener('mouseleave', e => { rightPressed = false; });
 
+// --- Player movement bounds ---
+function clampPlayerX(x) {
+  // Player can move fully within the road, not just lanes
+  const roadLeft = Math.round(w * 0.10);
+  const roadRight = Math.round(w * 0.90);
+  const minX = roadLeft + player.width/2;
+  const maxX = roadRight - player.width/2;
+  return Math.max(minX, Math.min(maxX, x));
+}
+
+
 function restartGame() {
   updateLaneCenters();
   player.x = laneCenters[1]; // center lane
@@ -335,7 +346,7 @@ function spawnObstacle() {
   // Prevent vertical overlap in the same lane
   let minGap = 100; // min vertical gap between trucks in same lane
   for (let lane of truckLanes) {
-    let overlap = obstacles.some(o => o.lane === lane && Math.abs(o.y - spawnY) < minGap);
+    let overlap = obstacles.some(o => o.type === 'truck' && o.lane === lane && Math.abs(o.y - spawnY) < minGap);
     if (overlap) return; // If any overlap, skip spawning this row entirely
   }
 
@@ -366,7 +377,11 @@ function spawnObstacle() {
       speed: baseSpeed,
       type: 'truck',
       color,
-      fast: isFast
+      fast: isFast,
+      // Trucks always stay in their assigned lane
+      update: function(dt) {
+        this.y += Math.abs(this.speed) * dt * (1 + distance/1000);
+      }
     });
   }
   // Occasionally spawn coins/powerups
@@ -440,6 +455,8 @@ function update(dt) {
     roadScroll += dt * 320 * 0.5;
     if (leftPressed) player.x -= player.speed * dt * 60;
     if (rightPressed) player.x += player.speed * dt * 60;
+    player.x = clampPlayerX(player.x); // always keep car within road
+
     player.x = Math.max(laneCenters[0], Math.min(laneCenters[2], player.x));
     obstacleTimer += dt * 1000;
     if (obstacleTimer >= obstacleInterval) {
@@ -448,7 +465,11 @@ function update(dt) {
     }
   }
   for (let obs of obstacles) {
-    obs.y += Math.abs(obs.speed) * dt * (1 + distance/1000);
+    if (obs.type === 'truck' && typeof obs.update === 'function') {
+      obs.update(dt);
+    } else if (obs.type !== 'truck') {
+      obs.y += Math.abs(obs.speed) * dt * (1 + distance/1000);
+    }
     // Near-miss shake: if player is close but not colliding
     let nearMiss = !gameOver && Math.abs(player.x - obs.x) < (player.width + obs.width)/2 + 10 &&
         Math.abs(player.y - obs.y) < (player.height + obs.height)/2 + 10 &&
