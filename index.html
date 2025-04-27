@@ -170,6 +170,7 @@
         canvas.style.height = h + 'px';
       }
     }
+
   </script>
 </head>
 <body>
@@ -188,7 +189,7 @@
       <button class="ctrl-btn" id="rightBtn">⟶</button>
     </div>
   </div>
-  <script>
+  <script src="main.js"></script>
     // --- Texture loading (must be global and first) ---
     const textures = {
       grass: new Image(),
@@ -413,7 +414,8 @@
 
 // --- Main Draw Function ---
 function draw(dt) {
-  document.getElementById('score').textContent = score + ' m';
+  var scoreElem = document.getElementById('score');
+  if (scoreElem) scoreElem.textContent = score + ' m';
 
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   drawStarfield();
@@ -544,7 +546,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Make obstacles spawn faster as you go
   obstacleInterval = Math.max(minInterval, 420 - distance);
 function draw(dt) {
-  document.getElementById('score').textContent = score + ' m';
+  var scoreElem = document.getElementById('score');
+  if (scoreElem) scoreElem.textContent = score + ' m';
 
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   // 1. Road, neon background, starfield, etc.
