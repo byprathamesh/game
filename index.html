@@ -149,8 +149,53 @@ document.addEventListener('DOMContentLoaded', () => {
   player.x = laneCenters[playerLane];
 });
 </script>
+  <!-- Calming background music, copyright-free -->
+  <audio id="bgm" src="https://cdn.pixabay.com/audio/2022/10/16/audio_12b6b1d1e3.mp3" autoplay loop></audio>
+  <style>
+    #muteBtn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 10;
+      background: rgba(0,0,0,0.6);
+      border: none;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 12px #0ff8;
+      font-size: 2em;
+      color: #0ff;
+      transition: background 0.2s;
+    }
+    #muteBtn:hover {
+      background: rgba(0,255,255,0.2);
+    }
+  </style>
+  <script>
+    // Mute/unmute logic
+    document.addEventListener('DOMContentLoaded', function() {
+      const audio = document.getElementById('bgm');
+      const muteBtn = document.getElementById('muteBtn');
+      let muted = localStorage.getItem('muted') === 'true';
+      function updateMute() {
+        audio.muted = muted;
+        muteBtn.innerHTML = muted ? '🔇' : '🔊';
+        localStorage.setItem('muted', muted);
+      }
+      muteBtn.addEventListener('click', function() {
+        muted = !muted;
+        updateMute();
+      });
+      updateMute();
+    });
+  </script>
 </head>
 <body>
+  <button id="muteBtn" title="Mute/Unmute"></button>
   <div id="gameContainer">
     <canvas id="gameCanvas" width="360" height="640"></canvas>
     <div id="hud">
@@ -273,10 +318,55 @@ let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, colo
       document.getElementById('gameOverScreen').style.display = 'none';
     }
     document.getElementById('restartBtn').onclick = restartGame;
-    function drawRoad() {
+    // Animated starfield
+let stars = [];
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 64; i++) {
+    stars.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      speed: 0.3 + Math.random() * 1.1
+    });
+  }
+}
+initStars();
+function drawStarfield(dt) {
   ctx.save();
-  ctx.fillStyle = '#111';
+  for (let star of stars) {
+    ctx.globalAlpha = 0.5 + Math.random()*0.2;
+    ctx.fillStyle = '#0ff';
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, 1.2 + Math.random()*1, 0, 2*Math.PI);
+    ctx.fill();
+    star.y += star.speed * dt * 60;
+    if (star.y > h) {
+      star.y = 0;
+      star.x = Math.random() * w;
+    }
+  }
+  ctx.globalAlpha = 1.0;
+  ctx.restore();
+}
+
+function drawRoad() {
+  ctx.save();
+  // Neon gradient background
+  let grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, '#0ff8');
+  grad.addColorStop(0.5, '#181e3c');
+  grad.addColorStop(1, '#000');
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
+  // Animated starfield
+  drawStarfield(1);
+  // Glowing road
+  ctx.save();
+  ctx.shadowColor = '#0ff';
+  ctx.shadowBlur = 36;
+  ctx.fillStyle = '#222';
+  ctx.fillRect(w*0.21, 0, w*0.58, h);
+  ctx.restore();
   // Subtle road texture
   for (let i = 0; i < h; i += 16) {
     ctx.fillStyle = i % 32 === 0 ? '#181818' : '#191919';
@@ -284,6 +374,8 @@ let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, colo
   }
   // Lane markings
   ctx.save();
+  ctx.shadowColor = '#0ff8';
+  ctx.shadowBlur = 12;
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 4;
   ctx.setLineDash([32, 32]);
@@ -297,6 +389,9 @@ let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, colo
   }
   ctx.restore();
   // Road edge lines
+  ctx.save();
+  ctx.shadowColor = '#0ff8';
+  ctx.shadowBlur = 16;
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 7;
   ctx.beginPath();
