@@ -365,28 +365,30 @@
   obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
 }
     function spawnObstacle() {
-  // Always leave at least one ENTIRE lane open (never block all 3)
+  // Strictly guarantee at least one open lane, never block all three lanes
   const lanes = [0, 1, 2];
-  let openLane = lanes[Math.floor(Math.random()*lanes.length)]; // pick one lane to always keep clear
-  let blocked = lanes.filter(l => l !== openLane);
+  // 1. Pick a random open lane
+  let openLane = lanes[Math.floor(Math.random() * lanes.length)];
+  // 2. For each other lane, only spawn if no obstacle in that lane within y < 200
   const spawnY = -80;
-  for (let lane of blocked) {
-    const laneX = w*0.3 + lane*w*0.2;
-    // Prevent vertical overlap: only spawn if no obstacle in this lane within 200px of the top
-    let overlap = obstacles.some(o => Math.abs(o.x - laneX) < 5 && o.y < 200);
-    if (overlap) continue;
-    // 60% truck, 40% car
+  for (let lane of lanes) {
+    if (lane === openLane) continue; // always leave this lane open
+    const laneX = w * 0.3 + lane * w * 0.2;
+    // Only spawn if no obstacle in this lane near the top
+    let laneBlocked = obstacles.some(o => Math.abs(o.x - laneX) < 5 && o.y < 200);
+    if (laneBlocked) continue;
+    // Randomly pick truck or car
     if (Math.random() < 0.6) {
       obstacles.push({
-        x: laneX, y: spawnY, width: 36, height: 88+Math.random()*12, // trucks are always rectangular
-        speed: (16 + Math.random()*4 + distance/60) * speedMultiplier, // trucks even faster
+        x: laneX, y: spawnY, width: 36, height: 88 + Math.random() * 12,
+        speed: (16 + Math.random() * 4 + distance / 60) * speedMultiplier,
         color: '#ff0', type: 'truck'
       });
     } else {
       obstacles.push({
-        x: laneX, y: spawnY, width: 16, height: 32+Math.random()*6, // cars are much narrower and more rectangular
-        speed: (14 + Math.random()*4 + distance/90) * speedMultiplier, // cars faster
-        color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
+        x: laneX, y: spawnY, width: 16, height: 32 + Math.random() * 6,
+        speed: (14 + Math.random() * 4 + distance / 90) * speedMultiplier,
+        color: ['#f33', '#0ff', '#0f0'][Math.floor(Math.random() * 3)], type: 'car'
       });
     }
   }
@@ -406,7 +408,7 @@
   if (roadScroll < -60) roadScroll += 60; // Make lane dashes scroll UP for forward feel
 
   // Player movement
-  const lateralSpeed = 12; // fixed, smooth
+  const lateralSpeed = 5; // fixed, smooth, precise
   if (leftPressed) player.x -= lateralSpeed;
   if (rightPressed) player.x += lateralSpeed;
   // Clamp to road
