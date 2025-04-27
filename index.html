@@ -177,7 +177,7 @@
     <canvas id="gameCanvas" width="320" height="480" style="width: 100vw; height: 100vh; image-rendering: pixelated; image-rendering: crisp-edges; background: #181818; display: block; margin: 0 auto;"></canvas>
     <div id="hud">
       <span id="score">0</span> m
-      <span style="margin-left:16px; font-size:0.9em;">Best: <span id="bestScore">0</span></span>
+      
     </div>
     <div id="gameOverScreen">
       <div style="margin-top: 120px;">Game Over<br><span id="finalScore">0</span> m</div>
@@ -414,7 +414,6 @@
 // --- Main Draw Function ---
 function draw(dt) {
   document.getElementById('score').textContent = score + ' m';
-  document.getElementById('bestScore').textContent = bestScore;
 
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   drawStarfield();
@@ -456,7 +455,8 @@ function update(dt) {
   // Update obstacles
   // Move obstacles, increase speed as distance increases, and despawn off-screen
   for (let obs of obstacles) {
-    obs.y += obs.speed * dt * (1 + distance/1000);
+    // Move trucks downward (toward player)
+    obs.y += Math.abs(obs.speed) * dt * (1 + distance/1000);
   }
   obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
 
@@ -468,14 +468,7 @@ function update(dt) {
     ) {
       gameOver = true;
       // Update best score if needed
-      if (score > bestScore) {
-        bestScore = score;
-        try {
-          localStorage.setItem('nightdriver_best', bestScore);
-        } catch (e) {
-          // Storage not available
-        }
-      }
+
       document.getElementById('gameOverScreen').style.display = 'block';
       break;
     }
@@ -552,7 +545,6 @@ document.addEventListener('DOMContentLoaded', () => {
   obstacleInterval = Math.max(minInterval, 420 - distance);
 function draw(dt) {
   document.getElementById('score').textContent = score + ' m';
-  document.getElementById('bestScore').textContent = bestScore;
 
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   // 1. Road, neon background, starfield, etc.
