@@ -73,7 +73,7 @@ function drawStarfield() {
 
 // --- Headlight effect ---
 function drawHeadlights() {
-  // Headlight cone effect
+  // Headlight cone effect (no vertical lines, just a gradient cone)
   ctx.save();
   ctx.globalAlpha = 0.45;
   ctx.beginPath();
@@ -87,7 +87,7 @@ function drawHeadlights() {
   ctx.fillStyle = gradient;
   ctx.fill();
   ctx.restore();
-}
+} // No vertical lines, only cone gradient
 
 // --- Near-miss shake ---
 let shake = 0, shakeTimer = 0;
