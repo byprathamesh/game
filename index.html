@@ -327,19 +327,17 @@
     ctx.fillRect(obs.x-obs.width/2+2, obs.y+obs.height/2-16, 8, 6);
     ctx.fillRect(obs.x+obs.width/2-10, obs.y+obs.height/2-16, 8, 6);
   } else {
-    // Car viewed from behind: rounded rectangle, tail lights
+    // Car viewed from behind: narrow rectangle, tail lights
     ctx.fillStyle = obs.color;
-    ctx.beginPath();
-    ctx.ellipse(obs.x, obs.y, obs.width/2, obs.height/2, 0, 0, 2*Math.PI);
-    ctx.fill();
+    ctx.fillRect(obs.x-obs.width/2, obs.y-obs.height/2, obs.width, obs.height);
     // Tail lights
     ctx.fillStyle = '#f00';
-    ctx.fillRect(obs.x-obs.width/2+4, obs.y+obs.height/2-7, 6, 6);
-    ctx.fillRect(obs.x+obs.width/2-10, obs.y+obs.height/2-7, 6, 6);
+    ctx.fillRect(obs.x-obs.width/2+2, obs.y+obs.height/2-5, 4, 5);
+    ctx.fillRect(obs.x+obs.width/2-6, obs.y+obs.height/2-5, 4, 5);
     // Wheels
     ctx.fillStyle = '#111';
-    ctx.fillRect(obs.x-obs.width/2+3, obs.y+obs.height/2-14, 6, 5);
-    ctx.fillRect(obs.x+obs.width/2-9, obs.y+obs.height/2-14, 6, 5);
+    ctx.fillRect(obs.x-obs.width/2+1, obs.y+obs.height/2-12, 4, 4);
+    ctx.fillRect(obs.x+obs.width/2-5, obs.y+obs.height/2-12, 4, 4);
   }
   ctx.restore();
 }
@@ -360,13 +358,13 @@
     // 60% truck, 40% car
     if (Math.random() < 0.6) {
       obstacles.push({
-        x: laneX, y: -60, width: 38, height: 88+Math.random()*18,
+        x: laneX, y: -60, width: 36, height: 88+Math.random()*12, // trucks are always rectangular
         speed: (16 + Math.random()*4 + distance/60) * speedMultiplier, // trucks even faster
         color: '#ff0', type: 'truck'
       });
     } else {
       obstacles.push({
-        x: laneX, y: -40, width: 28, height: 38+Math.random()*8, // cars are narrower
+        x: laneX, y: -40, width: 16, height: 32+Math.random()*6, // cars are much narrower and more rectangular
         speed: (14 + Math.random()*4 + distance/90) * speedMultiplier, // cars faster
         color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
       });
