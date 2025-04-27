@@ -138,16 +138,7 @@ function resizeGame() {
     canvas.style.height = h + 'px';
   }
 }
-window.addEventListener('resize', () => {
-  resizeGame();
-  updateLaneCenters();
-  player.x = laneCenters[1]; // center lane
-});
-document.addEventListener('DOMContentLoaded', () => {
-  resizeGame();
-  updateLaneCenters();
-  player.x = laneCenters[1]; // center lane
-});
+
 </script>
 
 </head>
@@ -556,9 +547,20 @@ function init() {
 }
 init();
 
+// Ensure all functions and variables are defined before these listeners
+window.addEventListener('resize', () => {
+  resizeGame();
+  updateLaneCenters();
+  player.x = laneCenters[1]; // center lane
+});
+document.addEventListener('DOMContentLoaded', () => {
+  resizeGame();
+  updateLaneCenters();
+  player.x = laneCenters[1]; // center lane
+});
+
   // --- Main Loop ---
-  let last = performance.now(); // Only ONE declaration allowed, before loop()
-  function loop(now) {
+  
     // DEBUG: confirm loop is running
     if (window.DEBUG_ONCE_LOOP !== true) {
       console.log('LOOP RUNNING');
@@ -631,6 +633,11 @@ function draw(dt) {
   let dx = 0;
   if (shake > 0) dx = (Math.random()-0.5)*shake;
   ctx.save();
+  ctx.translate(dx, 0);
+  drawPlayer();
+  for (let obs of obstacles) drawObstacle(obs);
+  ctx.restore();
+}
 </script>
 </body>
 </html>
