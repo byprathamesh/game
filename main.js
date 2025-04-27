@@ -425,3 +425,4 @@ function init() {
   requestAnimationFrame(loop);
 }
 init();
+}
