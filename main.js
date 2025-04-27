@@ -88,14 +88,8 @@ function drawHeadlights() {
 } // No vertical lines, only cone gradient
 
 // --- Near-miss shake ---
-let shake = 0, shakeTimer = 0;
-function triggerShake(intensity=1) { shake = 18 * intensity; shakeTimer = 0.22 * intensity; }
-function applyShake(dt) {
-  if (shake > 0) {
-    shakeTimer -= dt;
-    if (shakeTimer < 0) shake = 0;
-  }
-}
+// Removed shake and near-miss sparkle effect: no vibration, no particles, no visual feedback for near-miss.
+
 
 // --- Game State ---
 const NUM_LANES = 3;
@@ -157,9 +151,8 @@ function restartGame() {
   obstacleInterval = 180;
   obstacleTimer = obstacleInterval;
   leftPressed = rightPressed = false;
-  // Reset shake effect
-  shake = 0;
-  shakeTimer = 0;
+  // Removed shake reset (feature removed)
+
   document.getElementById('gameOverScreen').style.display = 'none';
   document.getElementById('finalScore').textContent = '0';
   var scoreElem = document.getElementById('score');
