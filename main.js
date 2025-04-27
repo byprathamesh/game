@@ -205,34 +205,34 @@ function drawRoad() {
 }
 
 function drawScenery(x, y) {
-  // Randomly pick a type based on y, and add a little vertical jitter
+  // Randomly pick a type based on y
   let type = Math.floor((y/80)%3);
-  let jitter = ((Math.sin(y/27 + x) + Math.cos(y/41 - x))*5)|0;
   ctx.save();
-  ctx.translate(x, y + jitter);
-  // Draw shadow/ground patch
+  // Anchor base to road edge
+  ctx.translate(x, y+28); // 28px down so base sits on road edge
+  // Draw larger, darker oval shadow/ground patch
   ctx.save();
-  ctx.globalAlpha = 0.28;
-  ctx.fillStyle = '#222';
-  ctx.beginPath(); ctx.ellipse(0, 18, 16, 7, 0, 0, 2*Math.PI); ctx.fill();
+  ctx.globalAlpha = 0.45;
+  ctx.fillStyle = '#181818';
+  ctx.beginPath(); ctx.ellipse(0, 0, 20, 9, 0, 0, 2*Math.PI); ctx.fill();
   ctx.restore();
   if (type === 0) {
     // Tree
-    ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#8d5524'; ctx.fillRect(-2, 10, 4, 12);
+    ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.arc(0,-18,13,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#8d5524'; ctx.fillRect(-2, -8, 4, 16);
   } else if (type === 1) {
     // Lamp post
-    ctx.fillStyle = '#bbb'; ctx.fillRect(-2, -10, 4, 20);
-    ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(0,-12,5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#bbb'; ctx.fillRect(-2, -24, 4, 24);
+    ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(0,-28,5,0,Math.PI*2); ctx.fill();
     // Lamp glow
     ctx.save();
-    ctx.globalAlpha = 0.15;
-    ctx.beginPath(); ctx.ellipse(0, 8, 18, 10, 0, 0, 2*Math.PI); ctx.fillStyle = '#ffe066'; ctx.fill();
+    ctx.globalAlpha = 0.13;
+    ctx.beginPath(); ctx.ellipse(0, -12, 19, 11, 0, 0, 2*Math.PI); ctx.fillStyle = '#ffe066'; ctx.fill();
     ctx.restore();
   } else {
     // Sign
-    ctx.fillStyle = '#fff'; ctx.fillRect(-7,-7,14,14);
-    ctx.fillStyle = '#f00'; ctx.fillRect(-3,-3,6,6);
+    ctx.fillStyle = '#fff'; ctx.fillRect(-7,-20,14,14);
+    ctx.fillStyle = '#f00'; ctx.fillRect(-3,-16,6,6);
   }
   ctx.restore();
 }
@@ -277,18 +277,36 @@ function drawObstacle(obs) {
   if (obs.type === 'coin') {
     ctx.save();
     ctx.translate(Math.round(obs.x), Math.round(obs.y));
-    ctx.globalAlpha = 0.85;
-    ctx.beginPath(); ctx.arc(0,0,13,0,2*Math.PI); ctx.fillStyle = '#ffd700'; ctx.fill();
-    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    // Draw shadow under coin
+    ctx.save();
+    ctx.globalAlpha = 0.38;
+    ctx.fillStyle = '#181818';
+    ctx.beginPath(); ctx.ellipse(0, 12, 10, 4, 0, 0, 2*Math.PI); ctx.fill();
+    ctx.restore();
+    // Draw shiny coin
+    ctx.globalAlpha = 1.0;
+    ctx.beginPath(); ctx.arc(0,0,11,0,2*Math.PI); ctx.fillStyle = '#ffd700'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    // Highlight
+    ctx.beginPath(); ctx.arc(-3,-4,3,0,2*Math.PI); ctx.fillStyle = '#fff8'; ctx.fill();
     ctx.restore();
     return;
   }
   if (obs.type === 'power') {
     ctx.save();
     ctx.translate(Math.round(obs.x), Math.round(obs.y));
-    ctx.globalAlpha = 0.82;
-    ctx.beginPath(); ctx.arc(0,0,13,0,2*Math.PI); ctx.fillStyle = '#0ff'; ctx.fill();
-    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    // Draw shadow under powerup
+    ctx.save();
+    ctx.globalAlpha = 0.38;
+    ctx.fillStyle = '#181818';
+    ctx.beginPath(); ctx.ellipse(0, 12, 10, 4, 0, 0, 2*Math.PI); ctx.fill();
+    ctx.restore();
+    // Draw shiny power orb
+    ctx.globalAlpha = 1.0;
+    ctx.beginPath(); ctx.arc(0,0,11,0,2*Math.PI); ctx.fillStyle = '#0ff'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    // Highlight
+    ctx.beginPath(); ctx.arc(3,-5,3,0,2*Math.PI); ctx.fillStyle = '#fff8'; ctx.fill();
     ctx.restore();
     return;
   }
