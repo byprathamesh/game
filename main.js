@@ -231,14 +231,44 @@ function drawScenery(x, y) {
 function drawPlayer() {
   ctx.save();
   ctx.translate(Math.round(player.x), Math.round(player.y));
-  // Draw pixel art car sprite if loaded, else fallback
-  if (textures.car.complete && textures.car.naturalWidth) {
-    ctx.drawImage(textures.car, -player.width/2, -player.height/2, player.width, player.height);
-  } else {
-    // Fallback: rectangle
-    ctx.fillStyle = player.color;
-    ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
-  }
+  // --- Enlarged Black & Yellow Rickshaw ---
+  // Main body (yellow)
+  ctx.fillStyle = '#FFD600';
+  ctx.fillRect(-18, -18, 36, 28);
+  // Roof (black)
+  ctx.fillStyle = '#111';
+  ctx.fillRect(-18, -28, 36, 12);
+  // Lower body fill (yellow, connects skirt to wheels)
+  ctx.fillStyle = '#FFD600';
+  ctx.fillRect(-13, 13, 26, 12);
+  // Lower skirt (black)
+  ctx.fillStyle = '#111';
+  ctx.fillRect(-18, 8, 36, 5);
+  // Rear wheels (black, pixel rectangles)
+  ctx.fillRect(-13, 15, 6, 10); // left wheel
+  ctx.fillRect(7, 15, 6, 10); // right wheel
+  // Divider stripe (dark gray)
+  ctx.fillStyle = '#444';
+  ctx.fillRect(-18, -5, 36, 4);
+  // Side pillars (black)
+  ctx.fillStyle = '#111';
+  ctx.fillRect(-18, -18, 4, 22);
+  ctx.fillRect(14, -18, 4, 22);
+  // Headlight (dark gray, rectangular, protruding)
+  ctx.fillStyle = '#444';
+  ctx.fillRect(-4, -32, 8, 9);
+  // Seat (dark gray)
+  ctx.fillStyle = '#444';
+  ctx.fillRect(-8, -6, 16, 7);
+  // Front grill (black)
+  ctx.fillStyle = '#111';
+  ctx.fillRect(-5, 8, 10, 3);
+  // Front wheel (dark gray, extended down)
+  ctx.fillStyle = '#444';
+  ctx.fillRect(-2, 11, 4, 13);
+  // Rear bumper (black)
+  ctx.fillStyle = '#111';
+  ctx.fillRect(-10, 23, 20, 3);
   ctx.restore();
 }
 
@@ -342,7 +372,6 @@ function spawnObstacle() {
     });
   }
   // No coins/powerups spawned
-
 }
 
 // --- Main Draw Function ---
