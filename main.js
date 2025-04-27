@@ -374,15 +374,9 @@ function draw(dt) {
   drawStarfield();
   drawRoad();
   drawHeadlights();
-  let dx = 0;
-  if (shake > 0) dx = (Math.random()-0.5)*shake;
-  ctx.save();
-  ctx.translate(dx, 0);
-
   drawPlayer();
   drawParticles();
   for (let obs of obstacles) drawObstacle(obs);
-  ctx.restore();
 }
 
 function update(dt) {
