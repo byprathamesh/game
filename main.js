@@ -101,7 +101,7 @@ const laneCenters = [
   Math.round(roadLeft + laneWidth/2 + laneWidth),
   Math.round(roadLeft + laneWidth/2 + 2*laneWidth)
 ];
-let player = { x: laneCenters[1], y: Math.round(h * 0.65), width: 44, height: 74, speed: 15, color: '#0ff' }; // Centered player
+let player = { x: laneCenters[1], y: Math.round(h * 0.65), width: 44, height: 74, speed: 22, color: '#0ff' }; // Centered player, increased speed
 let obstacles = [], obstacleTimer = 0, obstacleInterval = 120, minInterval = 38; // Increased difficulty: obstacles appear more frequently
 let distance = 0, score = 0, scoreMultiplier = 1;
 let speedMultiplier = 1;
@@ -386,7 +386,7 @@ function update(dt) {
     score = Math.floor(distance / 10); // Simple, reliable score: 1 point per 10 meters
 
 
-    roadScroll += dt * 320 * 0.5;
+    roadScroll += dt * 420 * 0.7; // Faster road scroll for more speed
     if (leftPressed) player.x -= player.speed * dt * 60;
     if (rightPressed) player.x += player.speed * dt * 60;
     player.x = clampPlayerX(player.x); // always keep car within road
@@ -427,11 +427,11 @@ function update(dt) {
   }
   // Make spawn interval decrease more aggressively as distance increases
 // Truck spawn interval and speed get much harder, much faster
-let difficulty = distance > 2000 ? 2.5 : distance > 1000 ? 1.7 : 1.0;
-obstacleInterval = Math.max(minInterval, 140 - (distance/7)*difficulty); // faster spawn
+let difficulty = distance > 2000 ? 3.5 : distance > 1000 ? 2.2 : 1.2;
+obstacleInterval = Math.max(minInterval, 110 - (distance/5.5)*difficulty); // much faster spawn
 for (let obs of obstacles) {
   if (obs.type === 'truck') {
-    obs.speed = 8 + (distance/350)*difficulty + (obs.fast ? 4 : 0) + Math.random()*2;
+    obs.speed = 11 + (distance/240)*difficulty + (obs.fast ? 5 : 0) + Math.random()*2.5;
   }
 }
 }
