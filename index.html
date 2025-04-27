@@ -440,14 +440,16 @@ function drawRoad() {
   obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
 }
     function spawnObstacle() {
-  // Strictly guarantee at least one open lane, never block all three lanes
+  // Always leave at least one open lane, and only one obstacle per lane
   const lanes = [0, 1, 2];
+  // Randomly pick one lane to remain open
   let openLane = lanes[Math.floor(Math.random() * lanes.length)];
   const spawnY = -80;
   for (let lane = 0; lane < NUM_LANES; lane++) {
     if (lane === openLane) continue;
     const laneX = laneCenters[lane]; // obstacles always centered in lane
-    let laneBlocked = obstacles.some(o => Math.abs(o.x - laneX) < 5 && o.y < 200);
+    // Only spawn if no obstacle is already in this lane and visible
+    let laneBlocked = obstacles.some(o => o.lane === lane && o.y < h && o.y > -120);
     if (laneBlocked) continue;
     if (Math.random() < 0.6) {
       obstacles.push({
