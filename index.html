@@ -132,8 +132,8 @@
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
     // --- Game State ---
-    let player = { x: w/2, y: h-90, width: 38, height: 64, speed: 6, color: '#0ff' };
-    let obstacles = [], obstacleTimer = 0, obstacleInterval = 1100, minInterval = 500;
+    let player = { x: w/2, y: h-90, width: 38, height: 64, speed: 9, color: '#0ff' };
+    let obstacles = [], obstacleTimer = 0, obstacleInterval = 800, minInterval = 260;
     let distance = 0, score = 0, bestScore = 0;
     let gameOver = false;
     let leftPressed = false, rightPressed = false;
@@ -162,7 +162,7 @@
     // --- Game Functions ---
     function restartGame() {
       player.x = w/2; distance = 0; score = 0; obstacles = [];
-      gameOver = false; obstacleInterval = 1100; resetControls();
+      gameOver = false; obstacleInterval = 800; resetControls();
       document.getElementById('gameOverScreen').style.display = 'none';
     }
     document.getElementById('restartBtn').onclick = restartGame;
@@ -199,16 +199,71 @@
       ctx.save();
       ctx.shadowColor = '#0ff';
       ctx.shadowBlur = 18;
+      // Neon car body
       ctx.fillStyle = player.color;
-      ctx.fillRect(player.x-player.width/2, player.y-player.height/2, player.width, player.height);
+      ctx.beginPath();
+      ctx.moveTo(player.x, player.y-player.height/2); // nose
+      ctx.lineTo(player.x+player.width/2-6, player.y-player.height/2+20); // right hood
+      ctx.lineTo(player.x+player.width/2, player.y+player.height/2-10); // right rear
+      ctx.lineTo(player.x-player.width/2, player.y+player.height/2-10); // left rear
+      ctx.lineTo(player.x-player.width/2+6, player.y-player.height/2+20); // left hood
+      ctx.closePath();
+      ctx.fill();
+      // Windows
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(player.x-10, player.y-18, 20, 20);
+      ctx.globalAlpha = 1.0;
+      // Wheels
+      ctx.fillStyle = '#222';
+      ctx.fillRect(player.x-18, player.y-26, 8, 22);
+      ctx.fillRect(player.x+10, player.y-26, 8, 22);
+      ctx.fillRect(player.x-18, player.y+4, 8, 22);
+      ctx.fillRect(player.x+10, player.y+4, 8, 22);
       ctx.restore();
     }
     function drawObstacle(obs) {
       ctx.save();
       ctx.shadowColor = obs.color;
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = obs.color;
-      ctx.fillRect(obs.x-obs.width/2, obs.y-obs.height/2, obs.width, obs.height);
+      ctx.shadowBlur = 12;
+      if (obs.type === 'truck') {
+        // Neon truck: cab + trailer
+        ctx.fillStyle = obs.color;
+        ctx.fillRect(obs.x-obs.width/2, obs.y-obs.height/2, obs.width, obs.height*0.65); // trailer
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(obs.x-obs.width/2, obs.y-obs.height/2+obs.height*0.65, obs.width, obs.height*0.35); // cab
+        ctx.strokeStyle = '#0ff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(obs.x-obs.width/2, obs.y-obs.height/2, obs.width, obs.height);
+        // Wheels
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.arc(obs.x-obs.width/3, obs.y+obs.height/2-6, 6, 0, 2*Math.PI);
+        ctx.arc(obs.x+obs.width/3, obs.y+obs.height/2-6, 6, 0, 2*Math.PI);
+        ctx.fill();
+      } else {
+        // Neon car obstacle
+        ctx.fillStyle = obs.color;
+        ctx.beginPath();
+        ctx.moveTo(obs.x, obs.y-obs.height/2); // nose
+        ctx.lineTo(obs.x+obs.width/2-4, obs.y-obs.height/2+14); // right hood
+        ctx.lineTo(obs.x+obs.width/2, obs.y+obs.height/2-8); // right rear
+        ctx.lineTo(obs.x-obs.width/2, obs.y+obs.height/2-8); // left rear
+        ctx.lineTo(obs.x-obs.width/2+4, obs.y-obs.height/2+14); // left hood
+        ctx.closePath();
+        ctx.fill();
+        // Windows
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(obs.x-8, obs.y-obs.height/2+8, 16, 14);
+        ctx.globalAlpha = 1.0;
+        // Wheels
+        ctx.fillStyle = '#222';
+        ctx.fillRect(obs.x-obs.width/2+2, obs.y-obs.height/2+4, 6, 12);
+        ctx.fillRect(obs.x+obs.width/2-8, obs.y-obs.height/2+4, 6, 12);
+        ctx.fillRect(obs.x-obs.width/2+2, obs.y+obs.height/2-16, 6, 12);
+        ctx.fillRect(obs.x+obs.width/2-8, obs.y+obs.height/2-16, 6, 12);
+      }
       ctx.restore();
     }
     function updateObstacles(dt) {
@@ -216,13 +271,32 @@
       obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
     }
     function spawnObstacle() {
-      const lane = Math.floor(Math.random()*3);
-      const laneX = w*0.3 + lane*w*0.2;
-      obstacles.push({
-        x: laneX, y: -40, width: 36, height: 36+Math.random()*20,
-        speed: 3.2 + Math.random()*2 + distance/700,
-        color: ['#f33','#ff0','#0ff'][Math.floor(Math.random()*3)]
-      });
+      // Always leave at least one open lane
+      const lanes = [0, 1, 2];
+      // Randomly pick 1 or 2 lanes to block (never all 3)
+      let blockCount = Math.random() < 0.6 ? 1 : 2;
+      let blocked = [];
+      while (blocked.length < blockCount) {
+        let l = lanes[Math.floor(Math.random()*lanes.length)];
+        if (!blocked.includes(l)) blocked.push(l);
+      }
+      for (let lane of blocked) {
+        const laneX = w*0.3 + lane*w*0.2;
+        // 50% chance to spawn truck, else car
+        if (Math.random() < 0.5) {
+          obstacles.push({
+            x: laneX, y: -50, width: 38, height: 80+Math.random()*20,
+            speed: 4.5 + Math.random()*2 + distance/350,
+            color: '#ff0', type: 'truck'
+          });
+        } else {
+          obstacles.push({
+            x: laneX, y: -40, width: 36, height: 40+Math.random()*10,
+            speed: 5.2 + Math.random()*2 + distance/400,
+            color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
+          });
+        }
+      }
     }
     function checkCollision(a, b) {
       return Math.abs(a.x-b.x) < (a.width+b.width)/2 && Math.abs(a.y-b.y) < (a.height+b.height)/2;
@@ -257,9 +331,13 @@
       }
       // Score
       if (!gameOver) {
-        distance += dt*player.speed*1.5;
+        // Increase speed as you go further
+        player.speed = 9 + Math.min(15, distance/120);
+        distance += dt*player.speed*2.2;
         score = Math.floor(distance);
         document.getElementById('score').textContent = score;
+        // Make obstacles spawn faster as you go
+        obstacleInterval = Math.max(minInterval, 800 - distance/2);
       }
     }
     function draw() {
