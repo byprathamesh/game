@@ -219,21 +219,31 @@ document.addEventListener('DOMContentLoaded', () => {
     let roadScroll = 0;
 
     // --- Starfield ---
-    const stars = Array.from({length: 50}, () => ({
-      x: Math.random()*w,
-      y: Math.random()*h,
-      speed: 0.2 + Math.random()*0.5
-    }));
-    function drawStars(dt) {
+    let stars = [];
+    function initStars() {
+      stars = [];
+      for (let i = 0; i < 64; i++) {
+        stars.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          speed: 0.3 + Math.random() * 1.1
+        });
+      }
+    }
+    initStars();
+    function drawStarfield(dt) {
       ctx.save();
-      ctx.globalAlpha = 0.7;
-      ctx.fillStyle = '#fff';
-      for (let s of stars) {
+      for (let star of stars) {
+        ctx.globalAlpha = 0.5 + Math.random()*0.2;
+        ctx.fillStyle = '#0ff';
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 1.1+Math.random()*1.2, 0, 2*Math.PI);
+        ctx.arc(star.x, star.y, 1.2 + Math.random()*1, 0, 2*Math.PI);
         ctx.fill();
-        s.y += s.speed * player.speed * dt * 1.2;
-        if (s.y > h) s.y = 0, s.x = Math.random()*w;
+        star.y += star.speed * dt * 60;
+        if (star.y > h) {
+          star.y = 0;
+          star.x = Math.random() * w;
+        }
       }
       ctx.globalAlpha = 1.0;
       ctx.restore();
@@ -318,36 +328,7 @@ let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, colo
       document.getElementById('gameOverScreen').style.display = 'none';
     }
     document.getElementById('restartBtn').onclick = restartGame;
-    // Animated starfield
-let stars = [];
-function initStars() {
-  stars = [];
-  for (let i = 0; i < 64; i++) {
-    stars.push({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      speed: 0.3 + Math.random() * 1.1
-    });
-  }
-}
-initStars();
-function drawStarfield(dt) {
-  ctx.save();
-  for (let star of stars) {
-    ctx.globalAlpha = 0.5 + Math.random()*0.2;
-    ctx.fillStyle = '#0ff';
-    ctx.beginPath();
-    ctx.arc(star.x, star.y, 1.2 + Math.random()*1, 0, 2*Math.PI);
-    ctx.fill();
-    star.y += star.speed * dt * 60;
-    if (star.y > h) {
-      star.y = 0;
-      star.x = Math.random() * w;
-    }
-  }
-  ctx.globalAlpha = 1.0;
-  ctx.restore();
-}
+    // (removed duplicate declaration and code, only one starfield system remains)
 
 function drawRoad() {
   ctx.save();
@@ -601,13 +582,11 @@ function drawRoad() {
     }
     
     function draw(dt) {
-  // 1. Starfield background
-  drawStars(dt);
-  // 2. Road and lane lines
+  // 1. Road, neon background, starfield, etc.
   drawRoad();
-  // 3. Headlight cone
+  // 2. Headlight cone
   drawHeadlights();
-  // 4. Shake effect: only apply to player & obstacles
+  // 3. Shake effect: only apply to player & obstacles
   let dx = 0;
   if (shake > 0) dx = (Math.random()-0.5)*shake;
   ctx.save();
