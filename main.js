@@ -234,10 +234,8 @@ function drawScenery(x, y) {
 } // No jitter, no vibration
 
 function drawPlayer() {
-  // Sleek black modern car, no yellow dot, retro style
-  if (!gameOver && Math.random() < 0.6) {
-    spawnParticle(player.x, player.y+38, '#888', (Math.random()-0.5)*0.8, 1.5+Math.random()*0.8, 0.5, 4);
-  }
+  // Sleek black modern car, no smoke, no particles, no gray line
+
   ctx.save();
   ctx.translate(Math.round(player.x), Math.round(player.y));
   // Outer white border
