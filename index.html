@@ -224,6 +224,13 @@
   // Road background
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, w, h);
+  // Subtle road texture
+  for (let i = 0; i < h; i += 16) {
+    ctx.globalAlpha = 0.07;
+    ctx.fillStyle = i % 32 === 0 ? '#aaa' : '#fff';
+    ctx.fillRect(w*0.19, i, w*0.62, 2);
+  }
+  ctx.globalAlpha = 1.0;
   // Main road
   ctx.fillStyle = '#222';
   ctx.fillRect(w*0.19, 0, w*0.62, h);
@@ -250,6 +257,13 @@
 }
     function drawPlayer() {
   ctx.save();
+  // Car shadow
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(player.x, player.y+player.height/2-6, player.width*0.48, 13, 0, 0, 2*Math.PI);
+  ctx.fill();
+  ctx.globalAlpha = 1.0;
   ctx.shadowColor = '#0ff';
   ctx.shadowBlur = 18;
   // Main car body (arrow shape, facing up)
@@ -323,33 +337,33 @@
   // Always leave at least one open lane
   const lanes = [0, 1, 2];
   // Decide how many lanes to block (1 or 2, never 3)
-  let blockCount = Math.random() < 0.7 ? 1 : 2;
-  let blocked = [];
-  while (blocked.length < blockCount) {
+  let blockCount = Math.random() < 0.7 ? 2 : 1; // More likely to block 2, so 1 lane open
+  let openLanes = [];
+  while (openLanes.length < (3 - blockCount)) {
     let l = lanes[Math.floor(Math.random()*lanes.length)];
-    if (!blocked.includes(l)) blocked.push(l);
+    if (!openLanes.includes(l)) openLanes.push(l);
   }
+  let blocked = lanes.filter(l => !openLanes.includes(l));
   // Prevent overlapping: only spawn if no other obstacle is close in the lane
   for (let lane of blocked) {
-  const laneX = w*0.3 + lane*w*0.2;
-  // Find the closest obstacle in this lane
-  let tooClose = obstacles.some(o => Math.abs(o.x - laneX) < 10 && o.y < 120);
-  if (tooClose) continue;
-  // 60% truck, 40% car
-  if (Math.random() < 0.6) {
-    obstacles.push({
-      x: laneX, y: -60, width: 38, height: 88+Math.random()*18,
-      speed: 12.5 + Math.random()*3 + distance/80, // much faster trucks
-      color: '#ff0', type: 'truck'
-    });
-  } else {
-    obstacles.push({
-      x: laneX, y: -40, width: 36, height: 44+Math.random()*10,
-      speed: 11.2 + Math.random()*3 + distance/120, // faster cars
-      color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
-    });
+    const laneX = w*0.3 + lane*w*0.2;
+    let tooClose = obstacles.some(o => Math.abs(o.x - laneX) < 10 && o.y < 120);
+    if (tooClose) continue;
+    // 60% truck, 40% car
+    if (Math.random() < 0.6) {
+      obstacles.push({
+        x: laneX, y: -60, width: 38, height: 88+Math.random()*18,
+        speed: 12.5 + Math.random()*3 + distance/80,
+        color: '#ff0', type: 'truck'
+      });
+    } else {
+      obstacles.push({
+        x: laneX, y: -40, width: 36, height: 44+Math.random()*10,
+        speed: 11.2 + Math.random()*3 + distance/120,
+        color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
+      });
+    }
   }
-}
 }
     function checkCollision(a, b) {
       return Math.abs(a.x-b.x) < (a.width+b.width)/2 && Math.abs(a.y-b.y) < (a.height+b.height)/2;
@@ -357,8 +371,8 @@
     function update(dt) {
   applyShake(dt); // update shake
 
-  roadScroll += player.speed * 2.6 * dt;
-  if (roadScroll > 52) roadScroll -= 52; // 28+24 from lane dash
+  roadScroll -= player.speed * 2.6 * dt;
+  if (roadScroll < -60) roadScroll += 60; // Make lane dashes scroll UP for forward feel
       // Player movement
       if (leftPressed) player.x -= player.speed;
       if (rightPressed) player.x += player.speed;
