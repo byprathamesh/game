@@ -101,15 +101,14 @@ function applyShake(dt) {
 
 // --- Game State ---
 const NUM_LANES = 3;
-let laneCenters = [];
-function updateLaneCenters() {
-  laneCenters = [];
-  let roadLeft = Math.round(w * 0.10);
-  let roadRight = Math.round(w * 0.90);
-  let laneWidth = Math.round((roadRight - roadLeft) / 3);
-  for (let i = 0; i < 3; i++) laneCenters.push(Math.round(roadLeft + laneWidth/2 + i*laneWidth));
-}
-updateLaneCenters();
+const roadLeft = Math.round(w * 0.10);
+const roadRight = Math.round(w * 0.90);
+const laneWidth = Math.round((roadRight - roadLeft) / 3);
+const laneCenters = [
+  Math.round(roadLeft + laneWidth/2),
+  Math.round(roadLeft + laneWidth/2 + laneWidth),
+  Math.round(roadLeft + laneWidth/2 + 2*laneWidth)
+];
 let player = { x: laneCenters[1], y: h - 100, width: 44, height: 74, speed: 15, color: '#0ff' }; // Larger, more visible player
 let obstacles = [], obstacleTimer = 0, obstacleInterval = 180, minInterval = 60;
 let distance = 0, score = 0, scoreMultiplier = 1;
@@ -143,8 +142,6 @@ document.getElementById('rightBtn').addEventListener('mouseleave', e => { rightP
 // --- Player movement bounds ---
 function clampPlayerX(x) {
   // Player can move fully within the road, not just lanes
-  const roadLeft = Math.round(w * 0.10);
-  const roadRight = Math.round(w * 0.90);
   const minX = roadLeft + player.width/2;
   const maxX = roadRight - player.width/2;
   return Math.max(minX, Math.min(maxX, x));
@@ -152,7 +149,6 @@ function clampPlayerX(x) {
 
 
 function restartGame() {
-  updateLaneCenters();
   player.x = laneCenters[1]; // center lane
   player.y = h - 80; // near bottom
   distance = 0;
@@ -208,7 +204,6 @@ function drawScenery(x, y) {
   // Randomly pick a type based on y
   let type = Math.floor((y/80)%3);
   ctx.save();
-  // Anchor base to road edge
   ctx.translate(x, y+28); // 28px down so base sits on road edge
   // Draw larger, darker oval shadow/ground patch
   ctx.save();
@@ -235,7 +230,7 @@ function drawScenery(x, y) {
     ctx.fillStyle = '#f00'; ctx.fillRect(-3,-16,6,6);
   }
   ctx.restore();
-}
+} // No jitter, no vibration
 
 function drawPlayer() {
   // Exhaust smoke
@@ -461,14 +456,7 @@ function update(dt) {
   if (!gameOver) {
     distance += dt * 200;
     score = Math.floor(distance / 10); // Simple, reliable score: 1 point per 10 meters
-    // Lane narrowing: limit so all lanes are always accessible (never shrink more than 12% on each side)
-    if (distance > 800) {
-      let shrink = Math.min(0.12, (distance-800)/9000); // max 12% each side
-      let roadLeft = Math.round(w * (0.10 + shrink));
-      let roadRight = Math.round(w * (0.90 - shrink));
-      let laneWidth = Math.round((roadRight - roadLeft) / 3);
-      for (let i = 0; i < 3; i++) laneCenters[i] = Math.round(roadLeft + laneWidth/2 + i*laneWidth);
-    }
+
 
     roadScroll += dt * 320 * 0.5;
     if (leftPressed) player.x -= player.speed * dt * 60;
