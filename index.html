@@ -7,7 +7,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Night Driver</title>
   <meta name="description" content="Night Driver: A neon endless racer game. Dodge obstacles, rack up your score, and enjoy retro visuals!">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <style>
     body {
       margin: 0;
@@ -370,23 +369,22 @@
   const lanes = [0, 1, 2];
   let openLane = lanes[Math.floor(Math.random()*lanes.length)]; // pick one lane to always keep clear
   let blocked = lanes.filter(l => l !== openLane);
-  // Prevent overlapping: only spawn if no other obstacle is close in the lane
-  let minY = -80;
+  const spawnY = -80;
   for (let lane of blocked) {
     const laneX = w*0.3 + lane*w*0.2;
-    // Ensure no vertical overlap with other new obstacles
-    let y = minY;
-    minY += 120; // stagger each obstacle vertically by at least 120px
+    // Prevent vertical overlap: only spawn if no obstacle in this lane within 200px of the top
+    let overlap = obstacles.some(o => Math.abs(o.x - laneX) < 5 && o.y < 200);
+    if (overlap) continue;
     // 60% truck, 40% car
     if (Math.random() < 0.6) {
       obstacles.push({
-        x: laneX, y: y, width: 36, height: 88+Math.random()*12, // trucks are always rectangular
+        x: laneX, y: spawnY, width: 36, height: 88+Math.random()*12, // trucks are always rectangular
         speed: (16 + Math.random()*4 + distance/60) * speedMultiplier, // trucks even faster
         color: '#ff0', type: 'truck'
       });
     } else {
       obstacles.push({
-        x: laneX, y: y+20, width: 16, height: 32+Math.random()*6, // cars are much narrower and more rectangular
+        x: laneX, y: spawnY, width: 16, height: 32+Math.random()*6, // cars are much narrower and more rectangular
         speed: (14 + Math.random()*4 + distance/90) * speedMultiplier, // cars faster
         color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
       });
