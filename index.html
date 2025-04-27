@@ -9,36 +9,124 @@
   <meta name="description" content="Night Driver: A neon endless racer game. Dodge obstacles, rack up your score, and enjoy retro visuals!">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-    body {
-      font-family: 'Press Start 2P', 'VT323', 'Consolas', monospace;
-      background: #181818;
+    html, body {
+      width: 100vw;
+      height: 100vh;
       margin: 0;
       padding: 0;
+      background: #222;
       overflow: hidden;
+      font-family: 'Press Start 2P', 'VT323', 'Consolas', monospace;
+    }
+    #gameContainer {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 360px;
+      height: 640px;
+      background: #222;
+      box-shadow: 0 0 0 8px #181818;
+      border: 4px solid #444;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
     #gameCanvas {
       display: block;
-      margin: 0 auto;
-      background: #181818;
+      background: #222;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
-      width: 100vw;
-      height: 100vh;
-      max-width: 100vw;
-      max-height: 100vh;
-      border: none;
+      width: 320px;
+      height: 480px;
+      border: 0;
+      margin: 0;
+      box-shadow: none;
     }
-    #hud, #gameOverScreen {
-      font-family: 'Press Start 2P', 'VT323', 'Consolas', monospace;
+    #hud {
+      position: absolute;
+      top: 8px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      color: #fff;
+      font-size: 12px;
+      z-index: 2;
+      pointer-events: none;
       text-shadow: none;
-      color: #fff;
     }
-    .game-btn, #muteBtn {
-      font-family: 'Press Start 2P', 'VT323', 'Consolas', monospace;
-      border-radius: 0;
-      background: #222;
+    #gameOverScreen {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(34,34,34,0.98);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 3;
+      font-size: 18px;
       color: #fff;
+      border: 0;
+    }
+    #gameOverScreen button {
+      margin-top: 28px;
+      font-size: 13px;
+      background: #444;
       border: 2px solid #888;
+      color: #fff;
+      padding: 10px 28px;
+      border-radius: 0;
+      box-shadow: none;
+      font-family: 'Press Start 2P', monospace;
+      cursor: pointer;
+    }
+    #mobileControls {
+      position: absolute;
+      bottom: 38px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      z-index: 4;
+      pointer-events: auto;
+      gap: 16px;
+    }
+    .ctrl-btn {
+      width: 52px;
+      height: 52px;
+      font-size: 32px;
+      background: #444;
+      color: #fff;
+      border: 4px solid #222;
+      border-radius: 0;
+      box-shadow: none;
+      font-family: 'Press Start 2P', monospace;
+      cursor: pointer;
+      outline: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.1s;
+    }
+    .ctrl-btn:active {
+      background: #666;
+    }
+    @media (max-width: 500px) {
+      #gameContainer {
+        width: 100vw;
+        height: 100vh;
+        min-width: 0;
+        min-height: 0;
+        border-width: 0;
+        box-shadow: none;
+      }
+      #gameCanvas {
+        width: 100vw;
+        height: 100vw;
+        max-width: 100vw;
+        max-height: 100vw;
+      }
     }
   </style>
   <script>
@@ -90,7 +178,11 @@
 
     // --- Starfield ---
     function drawStarfield() {
-      for (let i = 0; i < 48; i++) {
+      // Draw blocky "sky" background (like Minecraft)
+      ctx.fillStyle = '#7ec0ee'; // Minecraft sky blue
+      ctx.fillRect(0, 0, w, h);
+      // Draw blocky stars
+      for (let i = 0; i < 24; i++) {
         ctx.fillStyle = '#fff';
         ctx.fillRect(Math.floor(Math.random()*320), Math.floor(Math.random()*480), 2, 2);
       }
@@ -98,19 +190,7 @@
 
     // --- Headlight effect ---
     function drawHeadlights() {
-      ctx.save();
-      ctx.globalAlpha = 0.22;
-      const grad = ctx.createRadialGradient(player.x, player.y-20, 16, player.x, player.y-120, 160);
-      grad.addColorStop(0, '#fff8');
-      grad.addColorStop(0.1, '#0ff6');
-      grad.addColorStop(0.4, '#0ff2');
-      grad.addColorStop(1, 'transparent');
-      ctx.beginPath();
-      ctx.ellipse(player.x, player.y-60, 70, 170, 0, 0, 2*Math.PI);
-      ctx.fillStyle = grad;
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
-      ctx.restore();
+      // No headlight effect in Minecraft style
     }
 
     // --- Near-miss shake ---
@@ -179,104 +259,95 @@
 
     function drawRoad() {
       ctx.save();
-      // Neon gradient background
-      let grad = ctx.createLinearGradient(0, 0, 0, h);
-      grad.addColorStop(0, '#0ff8');
-      grad.addColorStop(0.5, '#181e3c');
-      grad.addColorStop(1, '#000');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
-      // Animated starfield
-      drawStarfield();
-      // Glowing road
-      ctx.save();
-      ctx.shadowColor = '#0ff';
-      ctx.shadowBlur = 36;
-      ctx.fillStyle = '#222';
-      ctx.fillRect(w*0.21, 0, w*0.58, h);
-      ctx.restore();
-      // Animated road texture
-      let scrollOffset = roadScroll % 32;
-      for (let i = -32; i < h; i += 32) {
-        ctx.fillStyle = i % 64 === 0 ? '#181818' : '#191919';
-        ctx.fillRect(w*0.21, i + scrollOffset, w*0.58, 16);
+      // --- Minecraft grass on sides ---
+      if (textures.grass.complete && textures.grass.naturalWidth) {
+        for (let y = 0; y < h; y += 16) {
+          for (let x = 0; x < w * 0.21; x += 16) ctx.drawImage(textures.grass, x, y, 16, 16);
+          for (let x = w * 0.79; x < w; x += 16) ctx.drawImage(textures.grass, x, y, 16, 16);
+        }
+      } else {
+        ctx.fillStyle = '#3c8527';
+        ctx.fillRect(0, 0, w * 0.21, h);
+        ctx.fillRect(w * 0.79, 0, w * 0.21, h);
       }
-      // Pixelated lane markings (2 solid lines for 3 lanes)
-      ctx.save();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 4;
-      ctx.setLineDash([14, 10]); // shorter dashes for pixel look
-      let roadLeft = Math.round(w * 0.18);
-      let roadRight = Math.round(w * 0.82);
+      // --- Dirt under grass ---
+      if (textures.dirt.complete && textures.dirt.naturalWidth) {
+        for (let x = 0; x < w * 0.21; x += 16) ctx.drawImage(textures.dirt, x, h - 32, 16, 16);
+        for (let x = w * 0.79; x < w; x += 16) ctx.drawImage(textures.dirt, x, h - 32, 16, 16);
+      } else {
+        ctx.fillStyle = '#7c5a3a';
+        ctx.fillRect(0, h - 32, w * 0.21, 32);
+        ctx.fillRect(w * 0.79, h - 32, w * 0.21, 32);
+      }
+      // --- Road (blocky stone) ---
+      if (textures.stone.complete && textures.stone.naturalWidth) {
+        for (let y = 0; y < h; y += 16) {
+          for (let x = w * 0.21; x < w * 0.79; x += 16) ctx.drawImage(textures.stone, x, y, 16, 16);
+        }
+      } else {
+        ctx.fillStyle = '#888';
+        ctx.fillRect(w * 0.21, 0, w * 0.58, h);
+      }
+      // --- Lane markings (blocky white lines) ---
+      ctx.fillStyle = '#fff';
+      let roadLeft = Math.round(w * 0.21);
+      let roadRight = Math.round(w * 0.79);
       let laneWidth = Math.round((roadRight - roadLeft) / 3);
       for (let i = 1; i < 3; i++) {
         let x = Math.round(roadLeft + i * laneWidth);
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
-        ctx.stroke();
+        for (let y = 0; y < h; y += 32) ctx.fillRect(x - 2, y, 4, 20);
       }
-      ctx.restore();
-      // Road edge lines
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 7;
-      ctx.beginPath();
-      ctx.moveTo(w*0.21, 0);
-      ctx.lineTo(w*0.21, h);
-      ctx.moveTo(w*0.79, 0);
-      ctx.lineTo(w*0.79, h);
-      ctx.moveTo(w/2, 0);
-      ctx.lineTo(w/2, h);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // --- Road edge lines (blocky) ---
+      ctx.fillStyle = '#222';
+      ctx.fillRect(roadLeft - 4, 0, 4, h);
+      ctx.fillRect(roadRight, 0, 4, h);
       ctx.restore();
     }
 
     function drawPlayer() {
       ctx.save();
       ctx.translate(Math.round(player.x), Math.round(player.y));
-      // Pixel car body
-      ctx.fillStyle = player.color;
-      ctx.fillRect(-16, -28, 32, 56);
-      // Pixel windows
-      ctx.fillStyle = '#7ec7ff';
-      ctx.fillRect(-10, -20, 20, 12);
-      // Pixel headlights
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(-8, 24, 6, 8);
-      ctx.fillRect(2, 24, 6, 8);
-      // Pixel wheels
-      ctx.fillStyle = '#222';
-      ctx.fillRect(-14, -24, 4, 8);
-      ctx.fillRect(10, -24, 4, 8);
-      ctx.fillRect(-14, 16, 4, 8);
-      ctx.fillRect(10, 16, 4, 8);
+      // Minecraft blocky car
+      ctx.fillStyle = '#2d2d2d'; // body dark gray
+      ctx.fillRect(-14, -20, 28, 40);
+      ctx.fillStyle = '#5a8fd6'; // blocky "window"
+      ctx.fillRect(-10, -14, 20, 10);
+      ctx.fillStyle = '#222'; // wheels
+      ctx.fillRect(-14, 14, 6, 8);
+      ctx.fillRect(8, 14, 6, 8);
+      ctx.fillRect(-14, -22, 6, 8);
+      ctx.fillRect(8, -22, 6, 8);
       ctx.restore();
     }
+  ctx.fillStyle = '#2d2d2d'; // body dark gray
+  ctx.fillRect(-14, -20, 28, 40);
+  ctx.fillStyle = '#5a8fd6'; // blocky "window"
+  ctx.fillRect(-10, -14, 20, 10);
+  ctx.fillStyle = '#222'; // wheels
+  ctx.fillRect(-14, 14, 6, 8);
+  ctx.fillRect(8, 14, 6, 8);
+  ctx.fillRect(-14, -22, 6, 8);
+  ctx.fillRect(8, -22, 6, 8);
+  ctx.restore();
+}
 
     function drawObstacle(obs) {
   ctx.save();
   ctx.translate(Math.round(obs.x), Math.round(obs.y));
   if (obs.type === 'truck') {
-    // Pixel truck: big rectangle, pixel headlights
-    ctx.fillStyle = obs.color;
-    ctx.fillRect(-16, -40, 32, 80);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(-10, -40, 8, 8);
-    ctx.fillRect(2, -40, 8, 8);
-    ctx.fillStyle = '#222';
-    ctx.fillRect(-14, 28, 6, 10);
-    ctx.fillRect(8, 28, 6, 10);
+    // Minecraft blocky truck
+    ctx.fillStyle = '#b97a57'; // brown truck
+    ctx.fillRect(-16, -32, 32, 64);
+    ctx.fillStyle = '#222'; // wheels
+    ctx.fillRect(-16, 24, 8, 8);
+    ctx.fillRect(8, 24, 8, 8);
   } else {
-    // Pixel car: small rectangle, pixel headlights
-    ctx.fillStyle = obs.color;
-    ctx.fillRect(-8, -14, 16, 28);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(-6, -14, 5, 6);
-    ctx.fillRect(1, -14, 5, 6);
-    ctx.fillStyle = '#222';
-    ctx.fillRect(-8, 6, 4, 6);
-    ctx.fillRect(4, 6, 4, 6);
+    // Minecraft blocky car
+    ctx.fillStyle = '#4a9c36'; // green car
+    ctx.fillRect(-10, -14, 20, 28);
+    ctx.fillStyle = '#222'; // wheels
+    ctx.fillRect(-10, 10, 6, 6);
+    ctx.fillRect(4, 10, 6, 6);
   }
   ctx.restore();
 }
