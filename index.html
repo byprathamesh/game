@@ -422,7 +422,7 @@ function loop(now) {
   }
   let dt = Math.min(0.06, (now-last)/1000);
   last = now;
-  if (!gameOver) update(dt);
+  // No update(dt) function exists; only draw(dt) is needed
   draw(dt);
   requestAnimationFrame(loop);
 }
