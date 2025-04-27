@@ -141,12 +141,12 @@ function resizeGame() {
 window.addEventListener('resize', () => {
   resizeGame();
   updateLaneCenters();
-  player.x = laneCenters[playerLane];
+  player.x = laneCenters[1]; // center lane
 });
 document.addEventListener('DOMContentLoaded', () => {
   resizeGame();
   updateLaneCenters();
-  player.x = laneCenters[playerLane];
+  player.x = laneCenters[1]; // center lane
 });
 </script>
 
