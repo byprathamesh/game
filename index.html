@@ -317,113 +317,86 @@
     function drawPlayer() {
       ctx.save();
       ctx.translate(Math.round(player.x), Math.round(player.y));
-      // Minecraft blocky car
-      ctx.fillStyle = '#2d2d2d'; // body dark gray
+      // --- Car Body ---
+      ctx.fillStyle = '#232323'; // dark body
       ctx.fillRect(-14, -20, 28, 40);
-      ctx.fillStyle = '#5a8fd6'; // blocky "window"
+      // --- Blue Window ---
+      ctx.fillStyle = '#5a8fd6';
       ctx.fillRect(-10, -14, 20, 10);
-      ctx.fillStyle = '#222'; // wheels
+      // --- Headlights ---
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(-8, -22, 6, 4);
+      ctx.fillRect(2, -22, 6, 4);
+      // --- Taillights ---
+      ctx.fillStyle = '#ff3c28';
+      ctx.fillRect(-8, 20, 6, 4);
+      ctx.fillRect(2, 20, 6, 4);
+      // --- Grill ---
+      ctx.fillStyle = '#666';
+      ctx.fillRect(-4, -20, 8, 3);
+      // --- Wheels ---
+      ctx.fillStyle = '#111';
       ctx.fillRect(-14, 14, 6, 8);
       ctx.fillRect(8, 14, 6, 8);
-      ctx.fillRect(-14, -22, 6, 8);
-      ctx.fillRect(8, -22, 6, 8);
+      ctx.fillRect(-14, -18, 6, 8);
+      ctx.fillRect(8, -18, 6, 8);
       ctx.restore();
     }
 
     function drawObstacle(obs) {
-  ctx.save();
-  ctx.translate(Math.round(obs.x), Math.round(obs.y));
-  if (obs.type === 'truck') {
-    // Minecraft blocky truck
-    ctx.fillStyle = '#b97a57'; // brown truck
-    ctx.fillRect(-16, -32, 32, 64);
-    ctx.fillStyle = '#222'; // wheels
-    ctx.fillRect(-16, 24, 8, 8);
-    ctx.fillRect(8, 24, 8, 8);
-  } else {
-    // Minecraft blocky car
-    ctx.fillStyle = '#4a9c36'; // green car
-    ctx.fillRect(-10, -14, 20, 28);
-    ctx.fillStyle = '#222'; // wheels
-    ctx.fillRect(-10, 10, 6, 6);
-    ctx.fillRect(4, 10, 6, 6);
-  }
-  ctx.restore();
-}
-    function updateObstacles(dt) {
-  for (let obs of obstacles) obs.y += obs.speed * dt * speedMultiplier;
-  obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
-}
-    function spawnObstacle() {
-  // Always leave at least one open lane, and only one obstacle per lane
-  const lanes = [0, 1, 2];
-  // Randomly pick one lane to remain open
-  let openLane = lanes[Math.floor(Math.random() * lanes.length)];
-  const spawnY = -80;
-  let spawned = 0;
-  for (let lane = 0; lane < 3; lane++) {
-    if (lane === openLane) continue;
-    const laneX = laneCenters[lane];
-    // Only spawn if no obstacle is already in this lane and visible
-    let laneBlocked = obstacles.some(o => o.lane === lane && o.y < h && o.y > -120);
-    if (laneBlocked) continue;
-    // Prevent spawning more than two obstacles (one per non-open lane)
-    if (spawned >= 2) break;
-    if (Math.random() < 0.6) {
-      obstacles.push({
-        x: laneX, y: spawnY, width: 36, height: 88 + Math.random() * 12,
-        speed: (16 + Math.random() * 4 + distance / 60) * speedMultiplier,
-        color: '#ff0', type: 'truck', lane: lane
-      });
-    } else {
-      obstacles.push({
-        x: laneX, y: spawnY, width: 16, height: 32 + Math.random() * 6,
-        speed: (14 + Math.random() * 4 + distance / 90) * speedMultiplier,
-        color: ['#f33', '#0ff', '#0f0'][Math.floor(Math.random() * 3)], type: 'car', lane: lane
-      });
+      ctx.save();
+      ctx.translate(Math.round(obs.x), Math.round(obs.y));
+      // --- Truck Body ---
+      ctx.fillStyle = '#b97a57'; // brown
+      ctx.fillRect(-16, -32, 32, 64);
+      // --- Truck Cabin ---
+      ctx.fillStyle = '#cfcfcf';
+      ctx.fillRect(-12, -32, 24, 18);
+      // --- Truck Grill ---
+      ctx.fillStyle = '#888';
+      ctx.fillRect(-8, -32, 16, 4);
+      // --- Headlights ---
+      ctx.fillStyle = '#ffe066';
+      ctx.fillRect(-14, -32, 6, 4);
+      ctx.fillRect(8, -32, 6, 4);
+      // --- Taillights ---
+      ctx.fillStyle = '#ff3c28';
+      ctx.fillRect(-14, 28, 6, 4);
+      ctx.fillRect(8, 28, 6, 4);
+      // --- Wheels ---
+      ctx.fillStyle = '#222';
+      ctx.fillRect(-16, 24, 8, 8);
+      ctx.fillRect(8, 24, 8, 8);
+      ctx.restore();
     }
-    spawned++;
-  }
-}
 
-function checkCollision(a, b) {
-  return Math.abs(a.x-b.x) < (a.width+b.width)/2 && Math.abs(a.y-b.y) < (a.height+b.height)/2;
-}
+    function updateObstacles(dt) {
+      for (let obs of obstacles) obs.y += obs.speed * dt * speedMultiplier;
+      obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
+    }
 
-function update(dt) {
-  if (!window.DEBUG_ONCE_UPDATE) { console.log('UPDATE RUNNING'); window.DEBUG_ONCE_UPDATE = true; }
-  applyShake(dt); // update shake
-  speedMultiplier = 1 + distance / 900;
-  let effectiveSpeed = player.speed * speedMultiplier;
-  roadScroll -= effectiveSpeed * 2.6 * dt;
-  if (roadScroll < -60) roadScroll += 60;
-  const lateralSpeed = 5;
-  if (leftPressed) player.x -= lateralSpeed;
-  if (rightPressed) player.x += lateralSpeed;
-  let minX = laneCenters[0] - (laneCenters[1] - laneCenters[0])/2 + player.width/2;
-  let maxX = laneCenters[NUM_LANES-1] + (laneCenters[1] - laneCenters[0])/2 - player.width/2;
-  player.x = Math.max(minX, Math.min(maxX, player.x));
-  updateObstacles(dt);
-  obstacleTimer += dt*1000 / speedMultiplier;
-  if (obstacleTimer > obstacleInterval) {
-    obstacleTimer = 0;
-    spawnObstacle();
-    if (obstacleInterval > minInterval) obstacleInterval -= 3.5 * speedMultiplier;
-  }
-  for (let obs of obstacles) {
-    if (checkCollision(player, obs)) {
-      if (obs.type === 'truck') {
-        triggerShake(1.7);
-        gameOver = true;
-        document.getElementById('finalScore').textContent = Math.floor(distance);
-        document.getElementById('gameOverScreen').style.display = 'flex';
-        if (score > bestScore) {
-          bestScore = score;
-          localStorage.setItem('nightdriver_best', bestScore);
-        }
-        document.getElementById('bestScore').textContent = bestScore;
-      } else if (obs.type === 'car') {
-        score = Math.max(0, score - 25);
+    function spawnObstacle() {
+      // Only spawn trucks, never cars
+      const lanes = [0, 1, 2];
+      let openLane = lanes[Math.floor(Math.random() * lanes.length)];
+      const spawnY = -80;
+      let spawned = 0;
+      for (let lane = 0; lane < 3; lane++) {
+        if (lane === openLane) continue;
+        const laneX = laneCenters[lane];
+        let laneBlocked = obstacles.some(o => o.lane === lane && o.y < h && o.y > -120);
+        if (laneBlocked) continue;
+        if (spawned >= 2) break;
+        obstacles.push({
+          x: laneX,
+          y: spawnY,
+          lane,
+          width: 32,
+          height: 64,
+          speed: 8 + Math.random() * 2,
+          type: 'truck'
+        });
+        spawned++;
         obs.x += (Math.random() > 0.5 ? 1 : -1) * 40;
         obs.y -= 18;
       }
