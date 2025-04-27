@@ -14,9 +14,28 @@
       height: 100vh;
       margin: 0;
       padding: 0;
-      background: #222;
+      background: #000;
       overflow: hidden;
       font-family: 'Press Start 2P', 'VT323', 'Consolas', monospace;
+    }
+    body {
+      overflow: hidden;
+    }
+    #gameContainer {
+      background: #000;
+      box-shadow: 0 0 0 8px #181818;
+      border: 4px solid #444;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 360px;
+      height: 640px;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      overflow: hidden;
     }
     #gameContainer {
       position: absolute;
@@ -231,7 +250,7 @@
     }
     updateLaneCenters();
     let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, color: '#0ff' }; // Start in center lane
-    let obstacles = [], obstacleTimer = 0, obstacleInterval = 320, minInterval = 60;
+    let obstacles = [], obstacleTimer = 0, obstacleInterval = 180, minInterval = 60;
     let distance = 0, score = 0, bestScore = 0;
     let speedMultiplier = 1;
     let gameOver = false;
@@ -261,7 +280,10 @@
     // --- Game Functions ---
     function restartGame() {
       player.x = w/2; player.y = h/2; distance = 0; score = 0; obstacles = [];
-      gameOver = false; obstacleInterval = 540; resetControls();
+      gameOver = false;
+      obstacleInterval = 180; // Fast spawn
+      obstacleTimer = obstacleInterval; // Spawn first truck immediately
+      resetControls();
       document.getElementById('gameOverScreen').style.display = 'none';
     }
     document.getElementById('restartBtn').onclick = restartGame;
@@ -416,6 +438,18 @@ function update(dt) {
   }
   // Update obstacles
   updateObstacles(dt);
+
+  // Collision detection
+  for (let obs of obstacles) {
+    if (
+      Math.abs(player.x - obs.x) < (player.width + obs.width) / 2 &&
+      Math.abs(player.y - obs.y) < (player.height + obs.height) / 2
+    ) {
+      gameOver = true;
+      document.getElementById('gameOverScreen').style.display = 'block';
+      break;
+    }
+  }
 }
 
 // --- Main Loop ---
