@@ -149,53 +149,9 @@ document.addEventListener('DOMContentLoaded', () => {
   player.x = laneCenters[playerLane];
 });
 </script>
-  <!-- Calming background music, copyright-free -->
-  <audio id="bgm" src="https://cdn.pixabay.com/audio/2022/10/16/audio_12b6b1d1e3.mp3" autoplay loop></audio>
-  <style>
-    #muteBtn {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      z-index: 10;
-      background: rgba(0,0,0,0.6);
-      border: none;
-      border-radius: 50%;
-      width: 44px;
-      height: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 0 12px #0ff8;
-      font-size: 2em;
-      color: #0ff;
-      transition: background 0.2s;
-    }
-    #muteBtn:hover {
-      background: rgba(0,255,255,0.2);
-    }
-  </style>
-  <script>
-    // Mute/unmute logic
-    document.addEventListener('DOMContentLoaded', function() {
-      const audio = document.getElementById('bgm');
-      const muteBtn = document.getElementById('muteBtn');
-      let muted = localStorage.getItem('muted') === 'true';
-      function updateMute() {
-        audio.muted = muted;
-        muteBtn.innerHTML = muted ? '🔇' : '🔊';
-        localStorage.setItem('muted', muted);
-      }
-      muteBtn.addEventListener('click', function() {
-        muted = !muted;
-        updateMute();
-      });
-      updateMute();
-    });
-  </script>
+
 </head>
 <body>
-  <button id="muteBtn" title="Mute/Unmute"></button>
   <div id="gameContainer">
     <canvas id="gameCanvas" width="360" height="640"></canvas>
     <div id="hud">
@@ -284,12 +240,12 @@ document.addEventListener('DOMContentLoaded', () => {
 let laneCenters = [];
 function updateLaneCenters() {
   laneCenters = [];
-  // Road from w*0.21 to w*0.79, evenly spaced
+  // Road from w * 0.21 to w * 0.79, evenly spaced for 3 lanes
   let roadLeft = w * 0.21;
   let roadRight = w * 0.79;
-  let laneWidth = (roadRight - roadLeft) / (NUM_LANES - 1);
-  for (let i = 0; i < NUM_LANES; i++) {
-    laneCenters.push(roadLeft + i * laneWidth);
+  let laneWidth = (roadRight - roadLeft) / 3; // 3 lanes, 2 dashed lines
+  for (let i = 0; i < 3; i++) {
+    laneCenters.push(roadLeft + laneWidth/2 + i * laneWidth);
   }
 }
 updateLaneCenters();
@@ -348,21 +304,24 @@ function drawRoad() {
   ctx.fillStyle = '#222';
   ctx.fillRect(w*0.21, 0, w*0.58, h);
   ctx.restore();
-  // Subtle road texture
-  for (let i = 0; i < h; i += 16) {
-    ctx.fillStyle = i % 32 === 0 ? '#181818' : '#191919';
-    ctx.fillRect(w*0.21, i, w*0.58, 8);
+  // Animated road texture
+  let scrollOffset = roadScroll % 32;
+  for (let i = -32; i < h; i += 32) {
+    ctx.fillStyle = i % 64 === 0 ? '#181818' : '#191919';
+    ctx.fillRect(w*0.21, i + scrollOffset, w*0.58, 16);
   }
-  // Lane markings
+  // Lane markings (2 dashed lines for 3 lanes)
   ctx.save();
   ctx.shadowColor = '#0ff8';
   ctx.shadowBlur = 12;
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 4;
   ctx.setLineDash([32, 32]);
-  // Draw lane lines based on laneCenters
-  for (let i = 1; i < NUM_LANES; i++) {
-    let x = (laneCenters[i-1] + laneCenters[i]) / 2;
+  let roadLeft = w * 0.21;
+  let roadRight = w * 0.79;
+  let laneWidth = (roadRight - roadLeft) / 3;
+  for (let i = 1; i < 3; i++) {
+    let x = roadLeft + i * laneWidth;
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, h);
