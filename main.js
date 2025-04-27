@@ -1,3 +1,8 @@
+window.onerror = function(message, source, lineno, colno, error) {
+  if (typeof message === 'string' && message.includes('Access to storage is not allowed')) return true;
+  if (typeof message === 'string' && message.includes('Unknown response id')) return true;
+  return false; // Let other errors through
+};
 window.onload = function() {
 // --- Texture loading (must be global and first) ---
 const textures = {
