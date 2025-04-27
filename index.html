@@ -466,15 +466,103 @@ function drawRoad() {
     }
   }
 }
-    function checkCollision(a, b) {
-      return Math.abs(a.x-b.x) < (a.width+b.width)/2 && Math.abs(a.y-b.y) < (a.height+b.height)/2;
-    }
-    function update(dt) {
+
+function checkCollision(a, b) {
+  return Math.abs(a.x-b.x) < (a.width+b.width)/2 && Math.abs(a.y-b.y) < (a.height+b.height)/2;
+}
+
+function update(dt) {
+  if (!window.DEBUG_ONCE_UPDATE) { console.log('UPDATE RUNNING'); window.DEBUG_ONCE_UPDATE = true; }
   applyShake(dt); // update shake
-
-  // Increase speed multiplier as you go further
   speedMultiplier = 1 + distance / 900;
+  let effectiveSpeed = player.speed * speedMultiplier;
+  roadScroll -= effectiveSpeed * 2.6 * dt;
+  if (roadScroll < -60) roadScroll += 60;
+  const lateralSpeed = 5;
+  if (leftPressed) player.x -= lateralSpeed;
+  if (rightPressed) player.x += lateralSpeed;
+  let minX = laneCenters[0] - (laneCenters[1] - laneCenters[0])/2 + player.width/2;
+  let maxX = laneCenters[NUM_LANES-1] + (laneCenters[1] - laneCenters[0])/2 - player.width/2;
+  player.x = Math.max(minX, Math.min(maxX, player.x));
+  updateObstacles(dt);
+  obstacleTimer += dt*1000 / speedMultiplier;
+  if (obstacleTimer > obstacleInterval) {
+    obstacleTimer = 0;
+    spawnObstacle();
+    if (obstacleInterval > minInterval) obstacleInterval -= 3.5 * speedMultiplier;
+  }
+  for (let obs of obstacles) {
+    if (checkCollision(player, obs)) {
+      if (obs.type === 'truck') {
+        triggerShake(1.7);
+        gameOver = true;
+        document.getElementById('finalScore').textContent = Math.floor(distance);
+        document.getElementById('gameOverScreen').style.display = 'flex';
+        if (score > bestScore) {
+          bestScore = score;
+          localStorage.setItem('nightdriver_best', bestScore);
+        }
+        document.getElementById('bestScore').textContent = bestScore;
+      } else if (obs.type === 'car') {
+        score = Math.max(0, score - 25);
+        obs.x += (Math.random() > 0.5 ? 1 : -1) * 40;
+        obs.y -= 18;
+      }
+    } else if (!gameOver && Math.abs(player.y-obs.y) < (player.height+obs.height)/2+16 && Math.abs(player.x-obs.x) > (player.width+obs.width)/2 && Math.abs(player.x-obs.x) < (player.width+obs.width)/2+18) {
+      if (!obs.nearMissed) {
+        obs.nearMissed = true;
+        score += 10;
+      }
+    }
+  }
+  obstacleInterval = Math.max(minInterval, 700 - distance/2);
+}
 
+function draw(dt) {
+  if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
+  drawRoad();
+  drawHeadlights();
+  let dx = 0;
+  if (shake > 0) dx = (Math.random()-0.5)*shake;
+  ctx.save();
+  ctx.translate(dx, 0);
+  drawPlayer();
+  for (let obs of obstacles) drawObstacle(obs);
+  ctx.restore();
+}
+
+// --- Main Loop ---
+let last = performance.now(); // Only ONE declaration allowed, before loop()
+function loop(now) {
+  if (window.DEBUG_ONCE_LOOP !== true) {
+    console.log('LOOP RUNNING');
+    window.DEBUG_ONCE_LOOP = true;
+  }
+  let dt = Math.min(0.06, (now-last)/1000);
+  last = now;
+  if (!gameOver) update(dt);
+  draw(dt);
+  requestAnimationFrame(loop);
+}
+
+// --- Init ---
+function init() {
+  console.log('INIT CALLED');
+  bestScore = Number(localStorage.getItem('nightdriver_best')) || 0;
+  document.getElementById('bestScore').textContent = bestScore;
+  restartGame();
+  roadScroll = 0;
+  requestAnimationFrame(loop);
+}
+init();
+
+  // --- Main Loop ---
+  let last = performance.now(); // Only ONE declaration allowed, before loop()
+  function loop(now) {
+    // DEBUG: confirm loop is running
+    if (window.DEBUG_ONCE_LOOP !== true) {
+      console.log('LOOP RUNNING');
+      window.DEBUG_ONCE_LOOP = true;
   // Player speed scales with multiplier
   let effectiveSpeed = player.speed * speedMultiplier;
   roadScroll -= effectiveSpeed * 2.6 * dt;
@@ -534,6 +622,7 @@ function drawRoad() {
 }
 
 function draw(dt) {
+  if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   // 1. Road, neon background, starfield, etc.
   drawRoad();
   // 2. Headlight cone
@@ -542,35 +631,6 @@ function draw(dt) {
   let dx = 0;
   if (shake > 0) dx = (Math.random()-0.5)*shake;
   ctx.save();
-  ctx.translate(dx, 0);
-  drawPlayer();
-  for (let obs of obstacles) drawObstacle(obs);
-  ctx.restore();
-}
-    // --- Main Loop ---
-    let last = performance.now();
-function loop(now) {
-  // DEBUG: confirm loop is running
-  if (window.DEBUG_ONCE_LOOP !== true) {
-    console.log('LOOP RUNNING');
-    window.DEBUG_ONCE_LOOP = true;
-  }
-  let dt = Math.min(0.06, (now-last)/1000);
-  last = now;
-  if (!gameOver) update(dt);
-  draw(dt);
-  requestAnimationFrame(loop);
-}
-    // --- Init ---
-    function init() {
-  console.log('INIT CALLED');
-  bestScore = Number(localStorage.getItem('nightdriver_best')) || 0;
-  document.getElementById('bestScore').textContent = bestScore;
-  restartGame();
-  roadScroll = 0;
-  requestAnimationFrame(loop);
-}    }
-    init();
-  </script>
+</script>
 </body>
 </html>
