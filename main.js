@@ -24,19 +24,42 @@ let roadScroll = 0;
 function drawStarfield() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, w, h);
+  // Starfield: static stars for night effect
   for (let i = 0; i < 24; i++) {
     ctx.fillStyle = '#fff';
-    ctx.fillRect(Math.floor(Math.random()*320), Math.floor(Math.random()*480), 2, 2);
+    ctx.globalAlpha = 0.7;
+    ctx.fillRect(Math.floor((i*53)%w), Math.floor((i*191)%h), 2, 2);
+    ctx.globalAlpha = 1.0;
   }
 }
 
 // --- Headlight effect ---
-function drawHeadlights() {}
+function drawHeadlights() {
+  // Headlight cone effect
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+  ctx.beginPath();
+  ctx.moveTo(player.x, player.y-30);
+  ctx.arc(player.x, player.y-120, 120, Math.PI*0.88, Math.PI*0.12, false);
+  ctx.lineTo(player.x, player.y-30);
+  ctx.closePath();
+  var gradient = ctx.createRadialGradient(player.x, player.y-30, 10, player.x, player.y-120, 120);
+  gradient.addColorStop(0, 'rgba(255,255,200,0.6)');
+  gradient.addColorStop(1, 'rgba(255,255,200,0.0)');
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  ctx.restore();
+}
 
 // --- Near-miss shake ---
 let shake = 0, shakeTimer = 0;
 function triggerShake(intensity=1) { shake = 18 * intensity; shakeTimer = 0.22 * intensity; }
-function applyShake(dt) { if (shake > 0) { shakeTimer -= dt; if (shakeTimer < 0) shake = 0; } }
+function applyShake(dt) {
+  if (shake > 0) {
+    shakeTimer -= dt;
+    if (shakeTimer < 0) shake = 0;
+  }
+}
 
 // --- Game State ---
 const NUM_LANES = 3;
@@ -90,6 +113,7 @@ function restartGame() {
   leftPressed = rightPressed = false;
   document.getElementById('gameOverScreen').style.display = 'none';
   document.getElementById('finalScore').textContent = '0';
+  gameStartTime = Date.now(); // reset spawn timer
   lastTime = performance.now();
   requestAnimationFrame(loop);
 }
@@ -102,7 +126,7 @@ function drawRoad() {
   const roadLeft = Math.round(w * 0.10);
   const roadRight = Math.round(w * 0.90);
   ctx.fillRect(roadLeft, 0, roadRight - roadLeft, h);
-  // Lane markings
+  // Lane markings (animated)
   ctx.fillStyle = '#fff';
   let laneWidth = Math.round((roadRight - roadLeft) / 3);
   for (let i = 1; i < 3; i++) {
@@ -113,6 +137,35 @@ function drawRoad() {
   ctx.fillStyle = '#222';
   ctx.fillRect(roadLeft - 4, 0, 4, h);
   ctx.fillRect(roadRight, 0, 4, h);
+  // Roadside scenery
+  for (let i = 0; i < 4; i++) {
+    let y = (roadScroll * 0.7 + i * 160) % h;
+    // Left side
+    drawScenery(roadLeft-24, y);
+    // Right side
+    drawScenery(roadRight+8, (y+80)%h);
+  }
+  ctx.restore();
+}
+
+function drawScenery(x, y) {
+  // Randomly pick a type based on y
+  let type = Math.floor((y/80)%3);
+  ctx.save();
+  ctx.translate(x, y);
+  if (type === 0) {
+    // Tree
+    ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#8d5524'; ctx.fillRect(-2, 10, 4, 12);
+  } else if (type === 1) {
+    // Lamp post
+    ctx.fillStyle = '#bbb'; ctx.fillRect(-2, -10, 4, 20);
+    ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(0,-12,5,0,Math.PI*2); ctx.fill();
+  } else {
+    // Sign
+    ctx.fillStyle = '#fff'; ctx.fillRect(-7,-7,14,14);
+    ctx.fillStyle = '#f00'; ctx.fillRect(-3,-3,6,6);
+  }
   ctx.restore();
 }
 
@@ -154,8 +207,8 @@ function drawObstacle(obs) {
   ctx.strokeStyle = '#ffe066';
   ctx.lineWidth = 3;
   ctx.strokeRect(-24, -44, 48, 88); // outline
-  // Truck body
-  ctx.fillStyle = '#b97a57';
+  // Truck body: random color
+  ctx.fillStyle = obs.color || '#b97a57';
   ctx.fillRect(-22, -42, 44, 84);
   // Cabin
   ctx.fillStyle = '#cfcfcf';
@@ -167,8 +220,12 @@ function drawObstacle(obs) {
   ctx.fillStyle = '#ffe066';
   ctx.fillRect(-18, -44, 7, 7);
   ctx.fillRect(11, -44, 7, 7);
-  // Taillights
-  ctx.fillStyle = '#ff3c28';
+  // Taillights (blink if fast truck)
+  if (obs.fast && Math.floor(Date.now()/200)%2 === 0) {
+    ctx.fillStyle = '#fff';
+  } else {
+    ctx.fillStyle = '#ff3c28';
+  }
   ctx.fillRect(-18, 37, 7, 7);
   ctx.fillRect(11, 37, 7, 7);
   // Wheels
@@ -180,7 +237,13 @@ function drawObstacle(obs) {
   ctx.restore();
 }
 
+// Track game start time for spawn delay
+let gameStartTime = Date.now();
+
 function spawnObstacle() {
+  // Wait 4 seconds after game start before spawning trucks
+  if (Date.now() - gameStartTime < 4000) return;
+
   const lanes = [0, 1, 2];
   // Only allow two trucks if distance > 1000, otherwise always one
   let allowTwo = distance > 1000;
@@ -198,18 +261,23 @@ function spawnObstacle() {
   }
 
   // Guarantee at least one open lane in this vertical region
-  // Check for every lane if it will be blocked in this region
   let futureObstacles = truckLanes.slice();
   let openLaneExists = lanes.some(lane => !futureObstacles.includes(lane));
   if (!openLaneExists) return; // Never allow all 3 lanes blocked
 
   // Only spawn a new row if previous row is far enough down
-  let lastRowY = Math.max(...obstacles.map(o => o.y), 0);
-  if (lastRowY > spawnY + minGap) return;
+  if (obstacles.length > 0) {
+    let lastRowY = Math.max(...obstacles.map(o => o.y), 0);
+    if (lastRowY > spawnY + minGap) return;
+  }
 
   // Place trucks in chosen lanes for this row
   for (let lane of truckLanes) {
-    let baseSpeed = 8 + Math.random() * 2 + distance / 600; // speed increases with distance
+    // Add truck variety: random color, rare fast truck
+    let truckColors = ['#b97a57', '#8d5524', '#d35400', '#2e7d32', '#1976d2'];
+    let color = truckColors[Math.floor(Math.random()*truckColors.length)];
+    let isFast = Math.random() < 0.12; // 12% chance
+    let baseSpeed = 8 + Math.random() * 2 + distance / 600 + (isFast ? 4 : 0);
     obstacles.push({
       x: laneCenters[lane],
       y: spawnY,
@@ -217,7 +285,9 @@ function spawnObstacle() {
       width: 48,
       height: 88,
       speed: baseSpeed,
-      type: 'truck'
+      type: 'truck',
+      color,
+      fast: isFast
     });
   }
 }
@@ -255,6 +325,12 @@ function update(dt) {
   }
   for (let obs of obstacles) {
     obs.y += Math.abs(obs.speed) * dt * (1 + distance/1000);
+    // Near-miss shake: if player is close but not colliding
+    if (!gameOver && Math.abs(player.x - obs.x) < (player.width + obs.width)/2 + 10 &&
+        Math.abs(player.y - obs.y) < (player.height + obs.height)/2 + 10 &&
+        !(Math.abs(player.x - obs.x) < (player.width + obs.width)/2 && Math.abs(player.y - obs.y) < (player.height + obs.height)/2)) {
+      triggerShake(0.2);
+    }
   }
   obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
   for (let obs of obstacles) {
@@ -263,6 +339,7 @@ function update(dt) {
       Math.abs(player.y - obs.y) < (player.height + obs.height) / 2
     ) {
       gameOver = true;
+      triggerShake(2.5);
       document.getElementById('gameOverScreen').style.display = 'flex';
       document.getElementById('finalScore').textContent = score;
       break;
