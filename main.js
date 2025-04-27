@@ -88,8 +88,10 @@ document.getElementById('restartBtn').onclick = restartGame;
 
 function drawRoad() {
   ctx.save();
-  ctx.fillStyle = '#888';
+  // Always use solid color backgrounds for road
+  ctx.fillStyle = '#888'; // Road grey
   ctx.fillRect(w * 0.21, 0, w * 0.58, h);
+  // Lane markings
   ctx.fillStyle = '#fff';
   let roadLeft = Math.round(w * 0.21);
   let roadRight = Math.round(w * 0.79);
@@ -98,6 +100,7 @@ function drawRoad() {
     let x = Math.round(roadLeft + i * laneWidth);
     for (let y = (roadScroll % 32) - 32; y < h; y += 32) ctx.fillRect(x - 2, y, 4, 20);
   }
+  // Road edge lines
   ctx.fillStyle = '#222';
   ctx.fillRect(roadLeft - 4, 0, 4, h);
   ctx.fillRect(roadRight, 0, 4, h);
