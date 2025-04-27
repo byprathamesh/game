@@ -184,10 +184,7 @@
 <body>
   <div id="gameContainer">
     <canvas id="gameCanvas" width="320" height="480"></canvas>
-    <div id="hud">
-      <span id="score">0</span> m
-      
-    </div>
+    <div id="score" class="score" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:20;min-width:80px;background:rgba(0,0,0,0.72);padding:8px 20px;border-radius:16px;font-size:2.1rem;font-weight:bold;color:#fff;box-shadow:0 2px 8px #0008;text-align:center;letter-spacing:2px;">0 m</div>
     <div id="gameOverScreen">
       <div style="margin-top: 120px;">Game Over<br><span id="finalScore">0</span> m</div>
       <button id="restartBtn">Restart</button>
