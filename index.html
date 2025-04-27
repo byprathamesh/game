@@ -397,16 +397,8 @@
           type: 'truck'
         });
         spawned++;
-        obs.x += (Math.random() > 0.5 ? 1 : -1) * 40;
-        obs.y -= 18;
-      }
-    } else if (!gameOver && Math.abs(player.y-obs.y) < (player.height+obs.height)/2+16 && Math.abs(player.x-obs.x) > (player.width+obs.width)/2 && Math.abs(player.x-obs.x) < (player.width+obs.width)/2+18) {
-      if (!obs.nearMissed) {
-        obs.nearMissed = true;
-        score += 10;
       }
     }
-  }
   obstacleInterval = Math.max(minInterval, 700 - distance/2);
 }
 
