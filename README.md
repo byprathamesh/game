@@ -1,4 +1,4 @@
-# Auto Rickshaw Driver
+# Auto Rickshaw Wala
 
 A minimalist, neon-themed endless vertical racer. Steer your pixel art auto rickshaw down a dark, winding road, dodge trucks, and rack up your best score!
 
