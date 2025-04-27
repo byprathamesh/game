@@ -539,7 +539,11 @@ function loop(now) {
 // --- Init ---
 function init() {
   console.log('INIT CALLED');
+  try {
   bestScore = Number(localStorage.getItem('nightdriver_best')) || 0;
+} catch (e) {
+  bestScore = 0;
+}
   document.getElementById('bestScore').textContent = bestScore;
   restartGame();
   roadScroll = 0;
