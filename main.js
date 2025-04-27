@@ -389,17 +389,17 @@ function draw(dt) {
   if (shake > 0) dx = (Math.random()-0.5)*shake;
   ctx.save();
   ctx.translate(dx, 0);
-  // Speed lines
+  // Speed lines (only white, never gray)
   if (!gameOver && distance > 600) {
     for (let i = 0; i < Math.min(12, Math.floor(distance/200)); i++) {
       let sx = player.x + (Math.random()-0.5)*40;
       let sy = player.y - 50 - Math.random()*120;
-      // Only draw speed line if it ends above the player's top
       let lineEndY = sy + 30 + Math.random()*20;
+      // Only draw white speed lines above the car
       if (lineEndY < player.y - 36) {
         ctx.save();
         ctx.globalAlpha = 0.22 + Math.random()*0.13;
-        ctx.strokeStyle = '#fff';
+        ctx.strokeStyle = '#fff'; // Only white
         ctx.lineWidth = 2 + Math.random();
         ctx.beginPath();
         ctx.moveTo(sx, sy);
