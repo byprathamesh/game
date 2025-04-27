@@ -43,13 +43,13 @@ const NUM_LANES = 3;
 let laneCenters = [];
 function updateLaneCenters() {
   laneCenters = [];
-  let roadLeft = Math.round(w * 0.21);
-  let roadRight = Math.round(w * 0.79);
+  let roadLeft = Math.round(w * 0.10);
+  let roadRight = Math.round(w * 0.90);
   let laneWidth = Math.round((roadRight - roadLeft) / 3);
   for (let i = 0; i < 3; i++) laneCenters.push(Math.round(roadLeft + laneWidth/2 + i*laneWidth));
 }
 updateLaneCenters();
-let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, color: '#0ff' };
+let player = { x: laneCenters[1], y: h - 80, width: 38, height: 64, speed: 15, color: '#0ff' }; // Start near bottom center lane
 let obstacles = [], obstacleTimer = 0, obstacleInterval = 180, minInterval = 60;
 let distance = 0, score = 0;
 let speedMultiplier = 1;
@@ -88,13 +88,13 @@ document.getElementById('restartBtn').onclick = restartGame;
 
 function drawRoad() {
   ctx.save();
-  // Always use solid color backgrounds for road
+  // Widen the road for better visibility
   ctx.fillStyle = '#888'; // Road grey
-  ctx.fillRect(w * 0.21, 0, w * 0.58, h);
+  const roadLeft = Math.round(w * 0.10);
+  const roadRight = Math.round(w * 0.90);
+  ctx.fillRect(roadLeft, 0, roadRight - roadLeft, h);
   // Lane markings
   ctx.fillStyle = '#fff';
-  let roadLeft = Math.round(w * 0.21);
-  let roadRight = Math.round(w * 0.79);
   let laneWidth = Math.round((roadRight - roadLeft) / 3);
   for (let i = 1; i < 3; i++) {
     let x = Math.round(roadLeft + i * laneWidth);
@@ -110,6 +110,9 @@ function drawRoad() {
 function drawPlayer() {
   ctx.save();
   ctx.translate(Math.round(player.x), Math.round(player.y));
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(-19, -32, 38, 64); // outline
   ctx.fillStyle = '#111';
   ctx.fillRect(-19, -32, 38, 64);
   ctx.fillStyle = '#3498db';
@@ -128,6 +131,9 @@ function drawPlayer() {
 function drawObstacle(obs) {
   ctx.save();
   ctx.translate(Math.round(obs.x), Math.round(obs.y));
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-16, -32, 32, 64); // outline
   ctx.fillStyle = '#b97a57';
   ctx.fillRect(-16, -32, 32, 64);
   ctx.fillStyle = '#cfcfcf';
