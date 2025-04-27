@@ -109,7 +109,7 @@ const laneCenters = [
   Math.round(roadLeft + laneWidth/2 + laneWidth),
   Math.round(roadLeft + laneWidth/2 + 2*laneWidth)
 ];
-let player = { x: laneCenters[1], y: h - 100, width: 44, height: 74, speed: 15, color: '#0ff' }; // Larger, more visible player
+let player = { x: laneCenters[1], y: Math.round(h * 0.65), width: 44, height: 74, speed: 15, color: '#0ff' }; // Centered player
 let obstacles = [], obstacleTimer = 0, obstacleInterval = 180, minInterval = 60;
 let distance = 0, score = 0, scoreMultiplier = 1;
 let speedMultiplier = 1;
@@ -150,10 +150,11 @@ function clampPlayerX(x) {
 
 function restartGame() {
   player.x = laneCenters[1]; // center lane
-  player.y = h - 80; // near bottom
+  player.y = Math.round(h * 0.65); // more vertically centered
   distance = 0;
   score = 0;
   obstacles = [];
+  particles = []; // Clear particles to prevent stray dots
   gameOver = false;
   obstacleInterval = 180;
   obstacleTimer = obstacleInterval;
@@ -233,40 +234,44 @@ function drawScenery(x, y) {
 } // No jitter, no vibration
 
 function drawPlayer() {
-  // Exhaust smoke
+  // Sleek black modern car, no yellow dot, retro style
   if (!gameOver && Math.random() < 0.6) {
     spawnParticle(player.x, player.y+38, '#888', (Math.random()-0.5)*0.8, 1.5+Math.random()*0.8, 0.5, 4);
   }
   ctx.save();
   ctx.translate(Math.round(player.x), Math.round(player.y));
+  // Outer white border
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 4;
-  ctx.strokeRect(-22, -37, 44, 74); // outline
-  // Body
-  ctx.fillStyle = '#232323';
-  ctx.fillRect(-20, -35, 40, 70);
-  // Blue window
-  ctx.fillStyle = '#5a8fd6';
-  ctx.fillRect(-13, -25, 26, 14);
+  ctx.strokeRect(-20, -36, 40, 72);
+  // Main black body
+  ctx.fillStyle = '#18191c';
+  ctx.fillRect(-18, -34, 36, 68);
+  // Sleek blue windshield
+  ctx.fillStyle = '#4a90e2';
+  ctx.fillRect(-10, -24, 20, 14);
+  // Side gray highlights
+  ctx.fillStyle = '#444';
+  ctx.fillRect(-18, -20, 4, 34);
+  ctx.fillRect(14, -20, 4, 34);
   // Headlights
   ctx.fillStyle = '#fff';
-  ctx.fillRect(-10, -37, 8, 6);
-  ctx.fillRect(2, -37, 8, 6);
+  ctx.fillRect(-10, -36, 8, 6);
+  ctx.fillRect(2, -36, 8, 6);
   // Taillights
   ctx.fillStyle = '#ff3c28';
-  ctx.fillRect(-10, 31, 8, 6);
-  ctx.fillRect(2, 31, 8, 6);
+  ctx.fillRect(-10, 30, 8, 6);
+  ctx.fillRect(2, 30, 8, 6);
   // Grill
   ctx.fillStyle = '#666';
-  ctx.fillRect(-8, -35, 16, 5);
+  ctx.fillRect(-8, -34, 16, 5);
   // Wheels
   ctx.fillStyle = '#111';
-  ctx.fillRect(-20, -25, 7, 18);
-  ctx.fillRect(13, -25, 7, 18);
-  ctx.fillRect(-20, 10, 7, 18);
-  ctx.fillRect(13, 10, 7, 18);
+  ctx.fillRect(-18, -22, 6, 16);
+  ctx.fillRect(12, -22, 6, 16);
+  ctx.fillRect(-18, 8, 6, 16);
+  ctx.fillRect(12, 8, 6, 16);
   ctx.restore();
-  // No yellow dot or overlay
 }
 
 function drawObstacle(obs) {
