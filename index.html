@@ -226,16 +226,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game State ---
     const NUM_LANES = 3;
-    let laneCenters = [];
-    function updateLaneCenters() {
-      laneCenters = [];
-      for (let i = 0; i < NUM_LANES; i++) {
-        laneCenters.push(w * 0.21 + i * (w * 0.29));
-      }
-    }
-    updateLaneCenters();
-    let playerLane = 1; // Start in center lane
-    let player = { x: laneCenters[playerLane], y: h/2, width: 38, height: 64, speed: 15, color: '#0ff' };
+let laneCenters = [];
+function updateLaneCenters() {
+  laneCenters = [];
+  // Road from w*0.21 to w*0.79, evenly spaced
+  let roadLeft = w * 0.21;
+  let roadRight = w * 0.79;
+  let laneWidth = (roadRight - roadLeft) / (NUM_LANES - 1);
+  for (let i = 0; i < NUM_LANES; i++) {
+    laneCenters.push(roadLeft + i * laneWidth);
+  }
+}
+updateLaneCenters();
+let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, color: '#0ff' }; // Start in center lane
     let obstacles = [], obstacleTimer = 0, obstacleInterval = 540, minInterval = 90;
     let distance = 0, score = 0, bestScore = 0;
     let speedMultiplier = 1;
@@ -272,47 +275,35 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('restartBtn').onclick = restartGame;
     function drawRoad() {
   ctx.save();
-  // Road background
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, w, h);
   // Subtle road texture
   for (let i = 0; i < h; i += 16) {
-    ctx.globalAlpha = 0.07;
-    ctx.fillStyle = i % 32 === 0 ? '#aaa' : '#fff';
-    ctx.fillRect(w*0.19, i, w*0.62, 2);
+    ctx.fillStyle = i % 32 === 0 ? '#181818' : '#191919';
+    ctx.fillRect(w*0.21, i, w*0.58, 8);
   }
-  ctx.globalAlpha = 1.0;
-  // Main road
-  ctx.fillStyle = '#222';
-  ctx.fillRect(w*0.19, 0, w*0.62, h);
-  // Speed lines for intensity
-  for (let i = 0; i < 16; ++i) {
-    ctx.globalAlpha = 0.20 + Math.random()*0.10;
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.6;
-    let lx = w*0.22 + Math.random()*w*0.56;
-    let ly = Math.random()*h;
-    ctx.beginPath();
-    ctx.moveTo(lx, ly);
-    ctx.lineTo(lx, ly+22+Math.random()*22);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1.0;
-  // Solid white edge lines
+  // Lane markings
+  ctx.save();
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(w*0.19, 0);
-  ctx.lineTo(w*0.19, h);
-  ctx.moveTo(w*0.81, 0);
-  ctx.lineTo(w*0.81, h);
-  ctx.stroke();
-  // Dashed white lane lines (center)
+  ctx.setLineDash([32, 32]);
+  // Draw lane lines based on laneCenters
+  for (let i = 1; i < NUM_LANES; i++) {
+    let x = (laneCenters[i-1] + laneCenters[i]) / 2;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  }
+  ctx.restore();
+  // Road edge lines
   ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 3;
-  ctx.setLineDash([28, 32]);
-  ctx.lineDashOffset = roadScroll;
+  ctx.lineWidth = 7;
   ctx.beginPath();
+  ctx.moveTo(w*0.21, 0);
+  ctx.lineTo(w*0.21, h);
+  ctx.moveTo(w*0.79, 0);
+  ctx.lineTo(w*0.79, h);
   ctx.moveTo(w/2, 0);
   ctx.lineTo(w/2, h);
   ctx.stroke();
@@ -420,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const spawnY = -80;
   for (let lane = 0; lane < NUM_LANES; lane++) {
     if (lane === openLane) continue;
-    const laneX = laneCenters[lane];
+    const laneX = laneCenters[lane]; // obstacles always centered in lane
     let laneBlocked = obstacles.some(o => Math.abs(o.x - laneX) < 5 && o.y < 200);
     if (laneBlocked) continue;
     if (Math.random() < 0.6) {
@@ -453,18 +444,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (roadScroll < -60) roadScroll += 60; // Make lane dashes scroll UP for forward feel
 
   // Player movement
-  // Lane-based movement (snap to lanes, classic endless runner)
-  if (leftPressed && playerLane > 0) {
-    playerLane--;
-    leftPressed = false;
-  }
-  if (rightPressed && playerLane < NUM_LANES - 1) {
-    playerLane++;
-    rightPressed = false;
-  }
-  player.x = laneCenters[playerLane];
-  // Clamp to road (redundant, but safe)
-  player.x = Math.max(laneCenters[0], Math.min(laneCenters[NUM_LANES-1], player.x));
+  // Smooth left/right movement (classic racer)
+  const lateralSpeed = 5;
+  if (leftPressed) player.x -= lateralSpeed;
+  if (rightPressed) player.x += lateralSpeed;
+  // Clamp player to road
+  let minX = laneCenters[0] - (laneCenters[1] - laneCenters[0])/2 + player.width/2;
+  let maxX = laneCenters[NUM_LANES-1] + (laneCenters[1] - laneCenters[0])/2 - player.width/2;
+  player.x = Math.max(minX, Math.min(maxX, player.x));
   // Obstacles
   updateObstacles(dt);
   // Spawn
