@@ -60,6 +60,7 @@ let leftPressed = false, rightPressed = false;
 window.addEventListener('keydown', e => {
   if (e.key === 'a' || e.key === 'ArrowLeft') leftPressed = true;
   if (e.key === 'd' || e.key === 'ArrowRight') rightPressed = true;
+  if (gameOver && (e.key === ' ' || e.key === 'Enter')) restartGame();
 });
 window.addEventListener('keyup', e => {
   if (e.key === 'a' || e.key === 'ArrowLeft') leftPressed = false;
@@ -77,12 +78,20 @@ document.getElementById('rightBtn').addEventListener('mouseup', e => { rightPres
 document.getElementById('rightBtn').addEventListener('mouseleave', e => { rightPressed = false; });
 
 function restartGame() {
-  player.x = w/2; player.y = h/2; distance = 0; score = 0; obstacles = [];
+  updateLaneCenters();
+  player.x = laneCenters[1]; // center lane
+  player.y = h - 80; // near bottom
+  distance = 0;
+  score = 0;
+  obstacles = [];
   gameOver = false;
   obstacleInterval = 180;
   obstacleTimer = obstacleInterval;
   leftPressed = rightPressed = false;
   document.getElementById('gameOverScreen').style.display = 'none';
+  document.getElementById('finalScore').textContent = '0';
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
 }
 document.getElementById('restartBtn').onclick = restartGame;
 
@@ -220,7 +229,8 @@ function update(dt) {
       Math.abs(player.y - obs.y) < (player.height + obs.height) / 2
     ) {
       gameOver = true;
-      document.getElementById('gameOverScreen').style.display = 'block';
+      document.getElementById('gameOverScreen').style.display = 'flex';
+      document.getElementById('finalScore').textContent = score;
       break;
     }
   }
