@@ -16,5 +16,12 @@ A minimalist, neon-themed endless vertical racer. Steer your car down a dark, wi
 ## Run Locally
 Just open `index.html` in your browser. No dependencies required.
 
+## Play Online
+[![GitHub Pages](https://img.shields.io/badge/Play%20on-GitHub%20Pages-blue?logo=github)](https://byprathamesh.github.io/game/)
+
+- The game is ready to deploy on GitHub Pages!
+- Go to your repo settings → Pages → Deploy from `master` branch (root directory).
+- Your live demo will be at: https://byprathamesh.github.io/game/
+
 ## License
 MIT
