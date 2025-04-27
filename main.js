@@ -427,10 +427,10 @@ function update(dt) {
   if (paused) return;
   if (!gameOver) {
     distance += dt * 200;
-    score += Math.floor(dt * 20 * scoreMultiplier); // slower, but with multiplier
-    // Lane narrowing
+    score = Math.floor(distance / 10); // Simple, reliable score: 1 point per 10 meters
+    // Lane narrowing: limit so all lanes are always accessible (never shrink more than 12% on each side)
     if (distance > 800) {
-      let shrink = Math.min(0.23, (distance-800)/6000);
+      let shrink = Math.min(0.12, (distance-800)/9000); // max 12% each side
       let roadLeft = Math.round(w * (0.10 + shrink));
       let roadRight = Math.round(w * (0.90 - shrink));
       let laneWidth = Math.round((roadRight - roadLeft) / 3);
