@@ -8,143 +8,66 @@
   <title>Night Driver</title>
   <meta name="description" content="Night Driver: A neon endless racer game. Dodge obstacles, rack up your score, and enjoy retro visuals!">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
     body {
+      font-family: 'Press Start 2P', 'VT323', 'Consolas', monospace;
+      background: #181818;
       margin: 0;
       padding: 0;
-      background: linear-gradient(to bottom, #101020 60%, #000 100%);
-      min-height: 100vh;
-      font-family: 'Segoe UI', Arial, sans-serif;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      overflow: hidden;
     }
-    #gameContainer {
-      position: relative;
+    #gameCanvas {
+      display: block;
+      margin: 0 auto;
+      background: #181818;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
       width: 100vw;
       height: 100vh;
       max-width: 100vw;
       max-height: 100vh;
-      box-shadow: 0 0 32px #0ff8, 0 0 8px #00f4, 0 0 0 #000;
-      border-radius: 18px;
-      overflow: hidden;
-      background: #111;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      aspect-ratio: 9/16;
-      max-width: 100vw;
-      max-height: 100vh;
-    }
-    #hud {
-      position: absolute;
-      top: 10px;
-      left: 0;
-      width: 100%;
-      text-align: center;
-      font-size: 1.3rem;
-      letter-spacing: 1px;
-      z-index: 2;
-      user-select: none;
-      text-shadow: 0 0 4px #0ff, 0 0 8px #00f, 0 0 2px #fff;
-    }
-    #gameOverScreen {
-      display: none;
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(10,10,40,0.92);
-      color: #fff;
-      z-index: 10;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      font-size: 2rem;
-      text-shadow: 0 0 8px #0ff, 0 0 2px #fff;
-    }
-    #gameOverScreen button {
-      margin-top: 24px;
-      padding: 12px 32px;
-      font-size: 1.2rem;
-      border-radius: 8px;
       border: none;
-      background: linear-gradient(90deg,#0ff,#08f 80%);
-      color: #111;
-      font-weight: bold;
-      box-shadow: 0 0 8px #0ff;
-      cursor: pointer;
     }
-    #mobileControls {
-      position: absolute;
-      bottom: 18px;
-      left: 0;
-      width: 100%;
-      display: flex;
-      flex-direction: row;
-      justify-content: center;
-      gap: 32px;
-      z-index: 3;
-      pointer-events: none;
+    #hud, #gameOverScreen {
+      font-family: 'Press Start 2P', 'VT323', 'Consolas', monospace;
+      text-shadow: none;
+      color: #fff;
     }
-    .ctrl-btn {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background: rgba(0,255,255,0.12);
-      border: 2px solid #0ff;
-      color: #0ff;
-      font-size: 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 8px #0ff8;
-      pointer-events: auto;
-      user-select: none;
-      touch-action: none;
-      transition: background 0.2s;
-    }
-    .ctrl-btn:active {
-      background: rgba(0,255,255,0.32);
-    }
-    @media (max-width: 500px) {
-      #gameContainer { width: 98vw; height: 70vw; min-height: 320px; }
+    .game-btn, #muteBtn {
+      font-family: 'Press Start 2P', 'VT323', 'Consolas', monospace;
+      border-radius: 0;
+      background: #222;
+      color: #fff;
+      border: 2px solid #888;
     }
   </style>
-<script>
-// Responsive resize logic to maintain 360x640 aspect ratio
-function resizeGame() {
-  const aspect = 360 / 640;
-  let w = window.innerWidth;
-  let h = window.innerHeight;
-  if (w / h > aspect) {
-    w = h * aspect;
-  } else {
-    h = w / aspect;
-  }
-  const container = document.getElementById('gameContainer');
-  container.style.width = w + 'px';
-  container.style.height = h + 'px';
-  const canvas = container.querySelector('canvas');
-  if (canvas) {
-    canvas.width = 360;
-    canvas.height = 640;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-  }
-}
-
-</script>
-
+  <script>
+    // Responsive resize logic to maintain 360x640 aspect ratio
+    function resizeGame() {
+      const aspect = 360 / 640;
+      let w = window.innerWidth;
+      let h = window.innerHeight;
+      if (w / h > aspect) {
+        w = h * aspect;
+      } else {
+        h = w / aspect;
+      }
+      const container = document.getElementById('gameContainer');
+      container.style.width = w + 'px';
+      container.style.height = h + 'px';
+      const canvas = container.querySelector('canvas');
+      if (canvas) {
+        canvas.width = 320;
+        canvas.height = 480;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+      }
+    }
+  </script>
 </head>
 <body>
   <div id="gameContainer">
-    <canvas id="gameCanvas" width="360" height="640"></canvas>
+    <canvas id="gameCanvas" width="320" height="480" style="width: 100vw; height: 100vh; image-rendering: pixelated; image-rendering: crisp-edges; background: #181818; display: block; margin: 0 auto;"></canvas>
     <div id="hud">
       <span id="score">0</span> m
       <span style="margin-left:16px; font-size:0.9em;">Best: <span id="bestScore">0</span></span>
@@ -166,34 +89,11 @@ function resizeGame() {
     let roadScroll = 0;
 
     // --- Starfield ---
-    let stars = [];
-    function initStars() {
-      stars = [];
-      for (let i = 0; i < 64; i++) {
-        stars.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          speed: 0.3 + Math.random() * 1.1
-        });
+    function drawStarfield() {
+      for (let i = 0; i < 48; i++) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(Math.floor(Math.random()*320), Math.floor(Math.random()*480), 2, 2);
       }
-    }
-    initStars();
-    function drawStarfield(dt) {
-      ctx.save();
-      for (let star of stars) {
-        ctx.globalAlpha = 0.5 + Math.random()*0.2;
-        ctx.fillStyle = '#0ff';
-        ctx.beginPath();
-        ctx.arc(star.x, star.y, 1.2 + Math.random()*1, 0, 2*Math.PI);
-        ctx.fill();
-        star.y += star.speed * dt * 60;
-        if (star.y > h) {
-          star.y = 0;
-          star.x = Math.random() * w;
-        }
-      }
-      ctx.globalAlpha = 1.0;
-      ctx.restore();
     }
 
     // --- Headlight effect ---
@@ -216,9 +116,9 @@ function resizeGame() {
     // --- Near-miss shake ---
     let shake = 0, shakeTimer = 0;
     function triggerShake(intensity=1) {
-  shake = 18 * intensity;
-  shakeTimer = 0.22 * intensity;
-}
+      shake = 18 * intensity;
+      shakeTimer = 0.22 * intensity;
+    }
     function applyShake(dt) {
       if (shake > 0) {
         shakeTimer -= dt;
@@ -228,19 +128,19 @@ function resizeGame() {
 
     // --- Game State ---
     const NUM_LANES = 3;
-let laneCenters = [];
-function updateLaneCenters() {
-  laneCenters = [];
-  // Road from w * 0.18 to w * 0.82 for more space, evenly spaced for 3 lanes
-  let roadLeft = w * 0.18;
-  let roadRight = w * 0.82;
-  let laneWidth = (roadRight - roadLeft) / 3;
-  for (let i = 0; i < 3; i++) {
-    laneCenters.push(roadLeft + laneWidth/2 + i * laneWidth);
-  }
-}
-updateLaneCenters();
-let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, color: '#0ff' }; // Start in center lane
+    let laneCenters = [];
+    function updateLaneCenters() {
+      laneCenters = [];
+      // Road from w * 0.18 to w * 0.82 for more space, evenly spaced for 3 lanes
+      let roadLeft = w * 0.18;
+      let roadRight = w * 0.82;
+      let laneWidth = (roadRight - roadLeft) / 3;
+      for (let i = 0; i < 3; i++) {
+        laneCenters.push(roadLeft + laneWidth/2 + i * laneWidth);
+      }
+    }
+    updateLaneCenters();
+    let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, color: '#0ff' }; // Start in center lane
     let obstacles = [], obstacleTimer = 0, obstacleInterval = 540, minInterval = 90;
     let distance = 0, score = 0, bestScore = 0;
     let speedMultiplier = 1;
@@ -277,11 +177,60 @@ let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, colo
     document.getElementById('restartBtn').onclick = restartGame;
     // (removed duplicate declaration and code, only one starfield system remains)
 
-function drawRoad() {
-  ctx.save();
-  // Neon gradient background
-  let grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, '#0ff8');
+    function drawRoad() {
+      ctx.save();
+      // Neon gradient background
+      let grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, '#0ff8');
+      grad.addColorStop(0.5, '#181e3c');
+      grad.addColorStop(1, '#000');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      // Animated starfield
+      drawStarfield();
+      // Glowing road
+      ctx.save();
+      ctx.shadowColor = '#0ff';
+      ctx.shadowBlur = 36;
+      ctx.fillStyle = '#222';
+      ctx.fillRect(w*0.21, 0, w*0.58, h);
+      ctx.restore();
+      // Animated road texture
+      let scrollOffset = roadScroll % 32;
+      for (let i = -32; i < h; i += 32) {
+        ctx.fillStyle = i % 64 === 0 ? '#181818' : '#191919';
+        ctx.fillRect(w*0.21, i + scrollOffset, w*0.58, 16);
+      }
+      // Pixelated lane markings (2 solid lines for 3 lanes)
+      ctx.save();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([14, 10]); // shorter dashes for pixel look
+      let roadLeft = Math.round(w * 0.18);
+      let roadRight = Math.round(w * 0.82);
+      let laneWidth = Math.round((roadRight - roadLeft) / 3);
+      for (let i = 1; i < 3; i++) {
+        let x = Math.round(roadLeft + i * laneWidth);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      ctx.restore();
+      // Road edge lines
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(w*0.21, 0);
+      ctx.lineTo(w*0.21, h);
+      ctx.moveTo(w*0.79, 0);
+      ctx.lineTo(w*0.79, h);
+      ctx.moveTo(w/2, 0);
+      ctx.lineTo(w/2, h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
   grad.addColorStop(0.5, '#181e3c');
   grad.addColorStop(1, '#000');
   ctx.fillStyle = grad;
@@ -301,18 +250,16 @@ function drawRoad() {
     ctx.fillStyle = i % 64 === 0 ? '#181818' : '#191919';
     ctx.fillRect(w*0.21, i + scrollOffset, w*0.58, 16);
   }
-  // Lane markings (2 dashed lines for 3 lanes)
+  // Pixelated lane markings (2 solid lines for 3 lanes)
   ctx.save();
-  ctx.shadowColor = '#0ff8';
-  ctx.shadowBlur = 12;
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 4;
-  ctx.setLineDash([32, 32]);
-  let roadLeft = w * 0.18;
-  let roadRight = w * 0.82;
-  let laneWidth = (roadRight - roadLeft) / 3;
+  ctx.setLineDash([14, 10]); // shorter dashes for pixel look
+  let roadLeft = Math.round(w * 0.18);
+  let roadRight = Math.round(w * 0.82);
+  let laneWidth = Math.round((roadRight - roadLeft) / 3);
   for (let i = 1; i < 3; i++) {
-    let x = roadLeft + i * laneWidth;
+    let x = Math.round(roadLeft + i * laneWidth);
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, h);
@@ -320,9 +267,6 @@ function drawRoad() {
   }
   ctx.restore();
   // Road edge lines
-  ctx.save();
-  ctx.shadowColor = '#0ff8';
-  ctx.shadowBlur = 16;
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 7;
   ctx.beginPath();
@@ -338,69 +282,38 @@ function drawRoad() {
 }
     function drawPlayer() {
   ctx.save();
-  // Car shadow
-  ctx.globalAlpha = 0.16;
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.ellipse(player.x, player.y+player.height/2-6, player.width*0.48, 13, 0, 0, 2*Math.PI);
-  ctx.fill();
-  ctx.globalAlpha = 1.0;
-  ctx.shadowColor = '#0ff';
-  ctx.shadowBlur = 18;
-  // Main car body (arrow shape, facing up)
+  ctx.translate(Math.round(player.x), Math.round(player.y));
+  // Pixel car body
   ctx.fillStyle = player.color;
-  ctx.beginPath();
-  ctx.moveTo(player.x, player.y-player.height/2); // nose (top center)
-  ctx.lineTo(player.x+player.width/2-8, player.y-player.height/2+22); // right front
-  ctx.lineTo(player.x+player.width/2, player.y+player.height/2-10); // right rear
-  ctx.lineTo(player.x, player.y+player.height/2); // tail
-  ctx.lineTo(player.x-player.width/2, player.y+player.height/2-10); // left rear
-  ctx.lineTo(player.x-player.width/2+8, player.y-player.height/2+22); // left front
-  ctx.closePath();
-  ctx.fill();
-  // Windshield
-  ctx.globalAlpha = 0.7;
+  ctx.fillRect(-16, -28, 32, 56);
+  // Pixel windows
+  ctx.fillStyle = '#7ec7ff';
+  ctx.fillRect(-10, -20, 20, 12);
+  // Pixel headlights
   ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.moveTo(player.x-10, player.y-player.height/2+16);
-  ctx.lineTo(player.x+10, player.y-player.height/2+16);
-  ctx.lineTo(player.x+7, player.y-player.height/2+32);
-  ctx.lineTo(player.x-7, player.y-player.height/2+32);
-  ctx.closePath();
-  ctx.fill();
-  ctx.globalAlpha = 1.0;
-  // Wheels
+  ctx.fillRect(-8, 24, 6, 8);
+  ctx.fillRect(2, 24, 6, 8);
+  // Pixel wheels
   ctx.fillStyle = '#222';
-  ctx.fillRect(player.x-16, player.y-18, 7, 21);
-  ctx.fillRect(player.x+9, player.y-18, 7, 21);
-  ctx.fillRect(player.x-16, player.y+8, 7, 18);
-  ctx.fillRect(player.x+9, player.y+8, 7, 18);
+  ctx.fillRect(-14, -24, 4, 8);
+  ctx.fillRect(10, -24, 4, 8);
+  ctx.fillRect(-14, 16, 4, 8);
+  ctx.fillRect(10, 16, 4, 8);
   ctx.restore();
 }
     function drawObstacle(obs) {
   ctx.save();
-  ctx.shadowColor = obs.color;
-  ctx.shadowBlur = 10;
+  ctx.translate(Math.round(obs.x), Math.round(obs.y));
   if (obs.type === 'truck') {
-    // Truck viewed from front: big rectangle, headlights, grill
+    // Pixel truck: big rectangle, pixel headlights
     ctx.fillStyle = obs.color;
-    ctx.fillRect(obs.x-obs.width/2, obs.y-obs.height/2, obs.width, obs.height);
-    // Headlights
+    ctx.fillRect(-16, -40, 32, 80);
     ctx.fillStyle = '#fff';
-    ctx.globalAlpha = 0.82;
-    ctx.fillRect(obs.x-obs.width/2+3, obs.y-obs.height/2+4, 8, 8);
-    ctx.fillRect(obs.x+obs.width/2-11, obs.y-obs.height/2+4, 8, 8);
-    ctx.globalAlpha = 1.0;
-    // Grill
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(obs.x-obs.width/2+7, obs.y+obs.height/2-7);
-    ctx.lineTo(obs.x+obs.width/2-7, obs.y+obs.height/2-7);
-    ctx.stroke();
-    // Wheels
-    ctx.fillStyle = '#111';
-    ctx.fillRect(obs.x-obs.width/2+2, obs.y+obs.height/2-12, 8, 6);
+    ctx.fillRect(-10, -40, 8, 8);
+    ctx.fillRect(2, -40, 8, 8);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(-14, 28, 6, 10);
+    ctx.fillRect(8, 28, 6, 10);
     ctx.fillRect(obs.x+obs.width/2-10, obs.y+obs.height/2-12, 8, 6);
   } else {
     // Car viewed from front: narrow rectangle, headlights, grill
