@@ -131,6 +131,7 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
+    let roadScroll = 0;
 
     // --- Starfield ---
     const stars = Array.from({length: 50}, () => ({
@@ -452,7 +453,8 @@ function loop(now) {
       bestScore = Number(localStorage.getItem('nightdriver_best')) || 0;
       document.getElementById('bestScore').textContent = bestScore;
       restartGame();
-      loop(performance.now());
+      roadScroll = 0;
+      requestAnimationFrame(loop);
     }
     init();
   </script>
