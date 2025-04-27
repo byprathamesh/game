@@ -269,42 +269,8 @@ function drawPlayer() {
 }
 
 function drawObstacle(obs) {
-  if (obs.type === 'coin') {
-    ctx.save();
-    ctx.translate(Math.round(obs.x), Math.round(obs.y));
-    // Draw shadow under coin
-    ctx.save();
-    ctx.globalAlpha = 0.38;
-    ctx.fillStyle = '#181818';
-    ctx.beginPath(); ctx.ellipse(0, 12, 10, 4, 0, 0, 2*Math.PI); ctx.fill();
-    ctx.restore();
-    // Draw shiny coin
-    ctx.globalAlpha = 1.0;
-    ctx.beginPath(); ctx.arc(0,0,11,0,2*Math.PI); ctx.fillStyle = '#ffd700'; ctx.fill();
-    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
-    // Highlight
-    ctx.beginPath(); ctx.arc(-3,-4,3,0,2*Math.PI); ctx.fillStyle = '#fff8'; ctx.fill();
-    ctx.restore();
-    return;
-  }
-  if (obs.type === 'power') {
-    ctx.save();
-    ctx.translate(Math.round(obs.x), Math.round(obs.y));
-    // Draw shadow under powerup
-    ctx.save();
-    ctx.globalAlpha = 0.38;
-    ctx.fillStyle = '#181818';
-    ctx.beginPath(); ctx.ellipse(0, 12, 10, 4, 0, 0, 2*Math.PI); ctx.fill();
-    ctx.restore();
-    // Draw shiny power orb
-    ctx.globalAlpha = 1.0;
-    ctx.beginPath(); ctx.arc(0,0,11,0,2*Math.PI); ctx.fillStyle = '#0ff'; ctx.fill();
-    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
-    // Highlight
-    ctx.beginPath(); ctx.arc(3,-5,3,0,2*Math.PI); ctx.fillStyle = '#fff8'; ctx.fill();
-    ctx.restore();
-    return;
-  }
+  
+  
   ctx.save();
   ctx.translate(Math.round(obs.x), Math.round(obs.y));
   ctx.strokeStyle = '#ffe066';
@@ -397,20 +363,8 @@ function spawnObstacle() {
       }
     });
   }
-  // Occasionally spawn coins/powerups
-  if (Math.random() < 0.13) {
-    let lane = truckLanes[Math.floor(Math.random()*truckLanes.length)];
-    let kind = Math.random() < 0.7 ? 'coin' : 'power';
-    obstacles.push({
-      x: laneCenters[lane],
-      y: spawnY-40,
-      lane,
-      width: 26,
-      height: 26,
-      speed: 10,
-      type: kind
-    });
-  }
+  // No coins/powerups spawned
+
 }
 
 // --- Main Draw Function ---
@@ -486,19 +440,8 @@ function update(dt) {
       scoreMultiplier = 2; // Double score for brief period
     }
   }
-  // Power-up/coin pickup logic
-  for (let obs of obstacles) {
-    if (obs.type === 'coin' && Math.abs(player.x - obs.x) < (player.width + obs.width)/2 && Math.abs(player.y - obs.y) < (player.height + obs.height)/2) {
-      score += 100;
-      spawnParticle(obs.x, obs.y, '#ffd700', (Math.random()-0.5)*2, -2, 0.6, 6);
-      obs.y = h+200; // Remove coin
-    }
-    if (obs.type === 'power' && Math.abs(player.x - obs.x) < (player.width + obs.width)/2 && Math.abs(player.y - obs.y) < (player.height + obs.height)/2) {
-      scoreMultiplier = 5;
-      spawnParticle(obs.x, obs.y, '#0ff', (Math.random()-0.5)*2, -2, 0.7, 8);
-      obs.y = h+200; // Remove powerup
-    }
-  }
+  // No coin or power-up logic
+
   obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
   for (let obs of obstacles) {
     if (
