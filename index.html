@@ -189,7 +189,7 @@
     // --- Starfield ---
     function drawStarfield() {
       // Draw blocky "sky" background (like Minecraft)
-      ctx.fillStyle = '#7ec0ee'; // Minecraft sky blue
+      ctx.fillStyle = '#000'; // Deep night sky
       ctx.fillRect(0, 0, w, h);
       // Draw blocky stars
       for (let i = 0; i < 24; i++) {
@@ -231,7 +231,7 @@
     }
     updateLaneCenters();
     let player = { x: laneCenters[1], y: h/2, width: 38, height: 64, speed: 15, color: '#0ff' }; // Start in center lane
-    let obstacles = [], obstacleTimer = 0, obstacleInterval = 540, minInterval = 90;
+    let obstacles = [], obstacleTimer = 0, obstacleInterval = 320, minInterval = 60;
     let distance = 0, score = 0, bestScore = 0;
     let speedMultiplier = 1;
     let gameOver = false;
@@ -286,7 +286,7 @@
       let laneWidth = Math.round((roadRight - roadLeft) / 3);
       for (let i = 1; i < 3; i++) {
         let x = Math.round(roadLeft + i * laneWidth);
-        for (let y = 0; y < h; y += 32) ctx.fillRect(x - 2, y, 4, 20);
+        for (let y = (-roadScroll % 32); y < h; y += 32) ctx.fillRect(x - 2, y, 4, 20);
       }
       // --- Road edge lines (blocky) ---
       ctx.fillStyle = '#222';
@@ -380,7 +380,7 @@
         spawned++;
       }
     }
-  obstacleInterval = Math.max(minInterval, 700 - distance/2);
+  obstacleInterval = Math.max(minInterval, 420 - distance);
 function draw(dt) {
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   drawStarfield();
@@ -399,6 +399,9 @@ function draw(dt) {
 function update(dt) {
   // Move player left/right if keys are pressed
   if (!gameOver) {
+    // Scroll road
+    roadScroll += dt * 320 * 0.5; // Adjust speed as needed
+
     if (leftPressed) player.x -= player.speed * dt * 60;
     if (rightPressed) player.x += player.speed * dt * 60;
     // Clamp player to road bounds
@@ -479,7 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   // Make obstacles spawn faster as you go
-  obstacleInterval = Math.max(minInterval, 700 - distance/2);
+  obstacleInterval = Math.max(minInterval, 420 - distance);
 function draw(dt) {
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   // 1. Road, neon background, starfield, etc.
