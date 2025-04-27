@@ -132,7 +132,7 @@
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
     // --- Game State ---
-    let player = { x: w/2, y: h-90, width: 38, height: 64, speed: 9, color: '#0ff' };
+    let player = { x: w/2, y: h/2, width: 38, height: 64, speed: 9, color: '#0ff' }; // Car in center
     let obstacles = [], obstacleTimer = 0, obstacleInterval = 800, minInterval = 260;
     let distance = 0, score = 0, bestScore = 0;
     let gameOver = false;
@@ -161,13 +161,12 @@
     document.getElementById('rightBtn').addEventListener('mouseleave', e => { rightPressed = false; });
     // --- Game Functions ---
     function restartGame() {
-      player.x = w/2; distance = 0; score = 0; obstacles = [];
+      player.x = w/2; player.y = h/2; distance = 0; score = 0; obstacles = [];
       gameOver = false; obstacleInterval = 800; resetControls();
       document.getElementById('gameOverScreen').style.display = 'none';
     }
     document.getElementById('restartBtn').onclick = restartGame;
     function drawRoad() {
-      // Road (pseudo-3D)
       ctx.save();
       ctx.fillStyle = '#222';
       ctx.fillRect(0, 0, w, h);
@@ -184,13 +183,26 @@
       ctx.lineTo(w*0.3, h);
       ctx.closePath();
       ctx.fill();
-      // Neon lane lines
+      // Neon lane lines (scrolling)
       ctx.strokeStyle = '#0ff';
       ctx.lineWidth = 4;
-      ctx.setLineDash([24, 18]);
+      ctx.setLineDash([28, 24]);
+      ctx.lineDashOffset = roadScroll;
       ctx.beginPath();
       ctx.moveTo(w/2, 0);
       ctx.lineTo(w/2, h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Side lines (scrolling)
+      ctx.strokeStyle = '#0ff8';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([16, 18]);
+      ctx.lineDashOffset = roadScroll;
+      ctx.beginPath();
+      ctx.moveTo(w*0.24, 0);
+      ctx.lineTo(w*0.24, h);
+      ctx.moveTo(w*0.76, 0);
+      ctx.lineTo(w*0.76, h);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.restore();
@@ -306,6 +318,8 @@
       return Math.abs(a.x-b.x) < (a.width+b.width)/2 && Math.abs(a.y-b.y) < (a.height+b.height)/2;
     }
     function update(dt) {
+  roadScroll += player.speed * 2.6 * dt;
+  if (roadScroll > 52) roadScroll -= 52; // 28+24 from lane dash
       // Player movement
       if (leftPressed) player.x -= player.speed;
       if (rightPressed) player.x += player.speed;
