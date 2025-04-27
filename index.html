@@ -409,20 +409,22 @@
         });
       }
     }
-  document.getElementById('bestScore').textContent = bestScore;
-
-  if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
-  drawStarfield();
-  drawRoad();
-  drawHeadlights();
-  let dx = 0;
-  if (shake > 0) dx = (Math.random()-0.5)*shake;
-  ctx.save();
-  ctx.translate(dx, 0);
-  drawPlayer();
-  for (let obs of obstacles) drawObstacle(obs);
-  ctx.restore();
 }
+
+document.getElementById('bestScore').textContent = bestScore;
+
+if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
+drawStarfield();
+drawRoad();
+drawHeadlights();
+let dx = 0;
+if (shake > 0) dx = (Math.random()-0.5)*shake;
+ctx.save();
+ctx.translate(dx, 0);
+drawPlayer();
+for (let obs of obstacles) drawObstacle(obs);
+ctx.restore();
+
 
 // --- Update Logic ---
 function update(dt) {
@@ -466,7 +468,9 @@ function update(dt) {
         bestScore = score;
         try {
           localStorage.setItem('nightdriver_best', bestScore);
-        } catch (e) {}
+        } catch (e) {
+          // Storage not available
+        }
       }
       document.getElementById('gameOverScreen').style.display = 'block';
       break;
