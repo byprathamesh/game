@@ -400,7 +400,6 @@
       }
     }
   obstacleInterval = Math.max(minInterval, 700 - distance/2);
-}
 function draw(dt) {
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   drawRoad();
@@ -479,7 +478,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Make obstacles spawn faster as you go
   obstacleInterval = Math.max(minInterval, 700 - distance/2);
-}
 function draw(dt) {
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   // 1. Road, neon background, starfield, etc.
