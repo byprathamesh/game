@@ -550,6 +550,11 @@ function drawRoad() {
     // --- Main Loop ---
     let last = performance.now();
 function loop(now) {
+  // DEBUG: confirm loop is running
+  if (window.DEBUG_ONCE_LOOP !== true) {
+    console.log('LOOP RUNNING');
+    window.DEBUG_ONCE_LOOP = true;
+  }
   let dt = Math.min(0.06, (now-last)/1000);
   last = now;
   if (!gameOver) update(dt);
@@ -558,12 +563,13 @@ function loop(now) {
 }
     // --- Init ---
     function init() {
-      bestScore = Number(localStorage.getItem('nightdriver_best')) || 0;
-      document.getElementById('bestScore').textContent = bestScore;
-      restartGame();
-      roadScroll = 0;
-      requestAnimationFrame(loop);
-    }
+  console.log('INIT CALLED');
+  bestScore = Number(localStorage.getItem('nightdriver_best')) || 0;
+  document.getElementById('bestScore').textContent = bestScore;
+  restartGame();
+  roadScroll = 0;
+  requestAnimationFrame(loop);
+}    }
     init();
   </script>
 </body>
