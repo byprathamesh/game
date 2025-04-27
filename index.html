@@ -563,42 +563,11 @@ document.addEventListener('DOMContentLoaded', () => {
   player.x = laneCenters[1]; // center lane
 });
 
-  // --- Main Loop ---
-  
-    // DEBUG: confirm loop is running
-    if (window.DEBUG_ONCE_LOOP !== true) {
-      console.log('LOOP RUNNING');
-      window.DEBUG_ONCE_LOOP = true;
-  // Player speed scales with multiplier
-  let effectiveSpeed = player.speed * speedMultiplier;
-  roadScroll -= effectiveSpeed * 2.6 * dt;
-  if (roadScroll < -60) roadScroll += 60; // Make lane dashes scroll UP for forward feel
+// --- END OF GAME SCRIPT ---
+</script>
+</body>
+</html>
 
-  // Player movement
-  // Smooth left/right movement (classic racer)
-  const lateralSpeed = 5;
-  if (leftPressed) player.x -= lateralSpeed;
-  if (rightPressed) player.x += lateralSpeed;
-  // Clamp player to road
-  let minX = laneCenters[0] - (laneCenters[1] - laneCenters[0])/2 + player.width/2;
-  let maxX = laneCenters[NUM_LANES-1] + (laneCenters[1] - laneCenters[0])/2 - player.width/2;
-  player.x = Math.max(minX, Math.min(maxX, player.x));
-  // Obstacles
-  updateObstacles(dt);
-  // Spawn
-  obstacleTimer += dt*1000 / speedMultiplier; // spawn rate also speeds up
-  if (obstacleTimer > obstacleInterval) {
-    obstacleTimer = 0;
-    spawnObstacle();
-    if (obstacleInterval > minInterval) obstacleInterval -= 3.5 * speedMultiplier; // ramp up faster
-  }
-  // Collision
-  for (let obs of obstacles) {
-  if (checkCollision(player, obs)) {
-  if (obs.type === 'truck') {
-    // Truck collision: game over
-    triggerShake(1.7);
-    gameOver = true;
     document.getElementById('finalScore').textContent = Math.floor(distance);
     document.getElementById('gameOverScreen').style.display = 'flex';
     if (score > bestScore) {
