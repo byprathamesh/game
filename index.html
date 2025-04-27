@@ -170,6 +170,16 @@
     </div>
   </div>
   <script>
+    // --- Texture loading (must be global and first) ---
+    const textures = {
+      grass: new Image(),
+      dirt: new Image(),
+      stone: new Image()
+    };
+    textures.grass.src = 'textures/grass.png';
+    textures.dirt.src = 'textures/dirt.png';
+    textures.stone.src = 'textures/stone.png';
+
     // --- Game Constants ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
