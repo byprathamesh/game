@@ -8,11 +8,15 @@ window.onload = function() {
 const textures = {
   grass: new Image(),
   dirt: new Image(),
-  stone: new Image()
+  stone: new Image(),
+  car: new Image(),
+  truck: new Image()
 };
 textures.grass.src = 'textures/grass.png';
 textures.dirt.src = 'textures/dirt.png';
 textures.stone.src = 'textures/stone.png';
+textures.car.src = 'sprites/car.png';
+textures.truck.src = 'sprites/truck.png';
 
 // --- Game Constants ---
 const canvas = document.getElementById('gameCanvas');
@@ -225,56 +229,25 @@ function drawScenery(x, y) {
 } // No jitter, no vibration
 
 function drawPlayer() {
-  // Sleek black modern car, no smoke, no particles, no gray line
-
   ctx.save();
   ctx.translate(Math.round(player.x), Math.round(player.y));
-  // Outer white border
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(-20, -36, 40, 72);
-  // Main black body
-  ctx.fillStyle = '#18191c';
-  ctx.fillRect(-18, -34, 36, 68);
-  // Sleek blue windshield
-  ctx.fillStyle = '#4a90e2';
-  ctx.fillRect(-10, -24, 20, 14);
-  // Side gray highlights
-  ctx.fillStyle = '#444';
-  ctx.fillRect(-18, -20, 4, 34);
-  ctx.fillRect(14, -20, 4, 34);
-  // Headlights
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(-10, -36, 8, 6);
-  ctx.fillRect(2, -36, 8, 6);
-  // Taillights
-  ctx.fillStyle = '#ff3c28';
-  ctx.fillRect(-10, 30, 8, 6);
-  ctx.fillRect(2, 30, 8, 6);
-  // Grill
-  ctx.fillStyle = '#666';
-  ctx.fillRect(-8, -34, 16, 5);
-  // Wheels
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-18, -22, 6, 16);
-  ctx.fillRect(12, -22, 6, 16);
-  ctx.fillRect(-18, 8, 6, 16);
-  ctx.fillRect(12, 8, 6, 16);
+  // Draw pixel art car sprite if loaded, else fallback
+  if (textures.car.complete && textures.car.naturalWidth) {
+    ctx.drawImage(textures.car, -player.width/2, -player.height/2, player.width, player.height);
+  } else {
+    // Fallback: rectangle
+    ctx.fillStyle = player.color;
+    ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+  }
   ctx.restore();
 }
 
 function drawObstacle(obs) {
-  
-  
   ctx.save();
   ctx.translate(Math.round(obs.x), Math.round(obs.y));
-  ctx.strokeStyle = '#ffe066';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(-24, -44, 48, 88); // outline
-  // Truck body: random color
-  ctx.fillStyle = obs.color || '#b97a57';
-  ctx.fillRect(-22, -42, 44, 84);
-  // Cabin
+  // Draw pixel art truck sprite if loaded, else fallback
+  if (textures.truck.complete && textures.truck.naturalWidth) {
+    ctx.drawImage(textures.truck, -obs.width/2, -obs.height/2, obs.width, obs.height);
   ctx.fillStyle = '#cfcfcf';
   ctx.fillRect(-16, -42, 32, 28);
   // Grill
@@ -452,4 +425,3 @@ function init() {
   requestAnimationFrame(loop);
 }
 init();
-};
