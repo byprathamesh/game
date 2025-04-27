@@ -185,8 +185,8 @@
     }
 
     // --- Game State ---
-    let player = { x: w/2, y: h/2, width: 38, height: 64, speed: 9, color: '#0ff' }; // Car in center
-    let obstacles = [], obstacleTimer = 0, obstacleInterval = 800, minInterval = 260;
+    let player = { x: w/2, y: h/2, width: 38, height: 64, speed: 12, color: '#0ff' }; // Car in center, much faster
+    let obstacles = [], obstacleTimer = 0, obstacleInterval = 620, minInterval = 180; // faster spawn, higher min speed
     let distance = 0, score = 0, bestScore = 0;
     let gameOver = false;
     let leftPressed = false, rightPressed = false;
@@ -261,32 +261,39 @@
       ctx.restore();
     }
     function drawPlayer() {
-      ctx.save();
-      ctx.shadowColor = '#0ff';
-      ctx.shadowBlur = 18;
-      // Neon car body
-      ctx.fillStyle = player.color;
-      ctx.beginPath();
-      ctx.moveTo(player.x, player.y-player.height/2); // nose
-      ctx.lineTo(player.x+player.width/2-6, player.y-player.height/2+20); // right hood
-      ctx.lineTo(player.x+player.width/2, player.y+player.height/2-10); // right rear
-      ctx.lineTo(player.x-player.width/2, player.y+player.height/2-10); // left rear
-      ctx.lineTo(player.x-player.width/2+6, player.y-player.height/2+20); // left hood
-      ctx.closePath();
-      ctx.fill();
-      // Windows
-      ctx.globalAlpha = 0.7;
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(player.x-10, player.y-18, 20, 20);
-      ctx.globalAlpha = 1.0;
-      // Wheels
-      ctx.fillStyle = '#222';
-      ctx.fillRect(player.x-18, player.y-26, 8, 22);
-      ctx.fillRect(player.x+10, player.y-26, 8, 22);
-      ctx.fillRect(player.x-18, player.y+4, 8, 22);
-      ctx.fillRect(player.x+10, player.y+4, 8, 22);
-      ctx.restore();
-    }
+  ctx.save();
+  ctx.shadowColor = '#0ff';
+  ctx.shadowBlur = 18;
+  // Main car body (arrow shape, facing up)
+  ctx.fillStyle = player.color;
+  ctx.beginPath();
+  ctx.moveTo(player.x, player.y-player.height/2); // nose (top center)
+  ctx.lineTo(player.x+player.width/2-8, player.y-player.height/2+22); // right front
+  ctx.lineTo(player.x+player.width/2, player.y+player.height/2-10); // right rear
+  ctx.lineTo(player.x, player.y+player.height/2); // tail
+  ctx.lineTo(player.x-player.width/2, player.y+player.height/2-10); // left rear
+  ctx.lineTo(player.x-player.width/2+8, player.y-player.height/2+22); // left front
+  ctx.closePath();
+  ctx.fill();
+  // Windshield
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(player.x-10, player.y-player.height/2+16);
+  ctx.lineTo(player.x+10, player.y-player.height/2+16);
+  ctx.lineTo(player.x+7, player.y-player.height/2+32);
+  ctx.lineTo(player.x-7, player.y-player.height/2+32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 1.0;
+  // Wheels
+  ctx.fillStyle = '#222';
+  ctx.fillRect(player.x-16, player.y-18, 7, 21);
+  ctx.fillRect(player.x+9, player.y-18, 7, 21);
+  ctx.fillRect(player.x-16, player.y+8, 7, 18);
+  ctx.fillRect(player.x+9, player.y+8, 7, 18);
+  ctx.restore();
+}
     function drawObstacle(obs) {
       ctx.save();
       ctx.shadowColor = obs.color;
@@ -347,25 +354,25 @@
   }
   // Prevent overlapping: only spawn if no other obstacle is close in the lane
   for (let lane of blocked) {
-    const laneX = w*0.3 + lane*w*0.2;
-    // Find the closest obstacle in this lane
-    let tooClose = obstacles.some(o => Math.abs(o.x - laneX) < 10 && o.y < 120);
-    if (tooClose) continue;
-    // 60% truck, 40% car
-    if (Math.random() < 0.6) {
-      obstacles.push({
-        x: laneX, y: -60, width: 38, height: 88+Math.random()*18,
-        speed: 8.5 + Math.random()*2.5 + distance/150, // much faster trucks
-        color: '#ff0', type: 'truck'
-      });
-    } else {
-      obstacles.push({
-        x: laneX, y: -40, width: 36, height: 44+Math.random()*10,
-        speed: 7.2 + Math.random()*2.5 + distance/200,
-        color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
-      });
-    }
+  const laneX = w*0.3 + lane*w*0.2;
+  // Find the closest obstacle in this lane
+  let tooClose = obstacles.some(o => Math.abs(o.x - laneX) < 10 && o.y < 120);
+  if (tooClose) continue;
+  // 60% truck, 40% car
+  if (Math.random() < 0.6) {
+    obstacles.push({
+      x: laneX, y: -60, width: 38, height: 88+Math.random()*18,
+      speed: 12.5 + Math.random()*3 + distance/80, // much faster trucks
+      color: '#ff0', type: 'truck'
+    });
+  } else {
+    obstacles.push({
+      x: laneX, y: -40, width: 36, height: 44+Math.random()*10,
+      speed: 11.2 + Math.random()*3 + distance/120, // faster cars
+      color: ['#f33','#0ff','#0f0'][Math.floor(Math.random()*3)], type: 'car'
+    });
   }
+}
 }
     function checkCollision(a, b) {
       return Math.abs(a.x-b.x) < (a.width+b.width)/2 && Math.abs(a.y-b.y) < (a.height+b.height)/2;
@@ -387,30 +394,39 @@
       if (obstacleTimer > obstacleInterval) {
         obstacleTimer = 0;
         spawnObstacle();
-        if (obstacleInterval > minInterval) obstacleInterval -= 2;
+        if (obstacleInterval > minInterval) obstacleInterval -= 3.5; // ramp up faster
       }
       // Collision
       for (let obs of obstacles) {
-        if (checkCollision(player, obs)) {
-          gameOver = true;
-          document.getElementById('finalScore').textContent = Math.floor(distance);
-          document.getElementById('gameOverScreen').style.display = 'flex';
-          if (score > bestScore) {
-            bestScore = score;
-            localStorage.setItem('nightdriver_best', bestScore);
-          }
-          document.getElementById('bestScore').textContent = bestScore;
-        }
-        // Near-miss detection (side-by-side, but not colliding)
-        else if (!gameOver && Math.abs(player.y-obs.y) < (player.height+obs.height)/2+16 && Math.abs(player.x-obs.x) > (player.width+obs.width)/2 && Math.abs(player.x-obs.x) < (player.width+obs.width)/2+18) {
-          // Only trigger once per obstacle
-          if (!obs.nearMissed) {
-            obs.nearMissed = true;
-            triggerShake();
-            score += 10; // bonus points
-          }
-        }
+  if (checkCollision(player, obs)) {
+    if (obs.type === 'truck') {
+      // Truck collision: game over
+      gameOver = true;
+      document.getElementById('finalScore').textContent = Math.floor(distance);
+      document.getElementById('gameOverScreen').style.display = 'flex';
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem('nightdriver_best', bestScore);
       }
+      document.getElementById('bestScore').textContent = bestScore;
+    } else if (obs.type === 'car') {
+      // Car collision: shake and penalty, but NOT game over
+      triggerShake();
+      score = Math.max(0, score - 25);
+      obs.x += (Math.random() > 0.5 ? 1 : -1) * 40; // nudge car aside
+      obs.y -= 18; // push away
+    }
+  }
+  // Near-miss detection (side-by-side, but not colliding)
+  else if (!gameOver && Math.abs(player.y-obs.y) < (player.height+obs.height)/2+16 && Math.abs(player.x-obs.x) > (player.width+obs.width)/2 && Math.abs(player.x-obs.x) < (player.width+obs.width)/2+18) {
+    // Only trigger once per obstacle
+    if (!obs.nearMissed) {
+      obs.nearMissed = true;
+      triggerShake();
+      score += 10; // bonus points
+    }
+  }
+}
       // Score
       if (!gameOver) {
         // Increase speed as you go further
