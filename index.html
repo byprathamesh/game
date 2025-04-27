@@ -402,6 +402,7 @@
   obstacleInterval = Math.max(minInterval, 700 - distance/2);
 function draw(dt) {
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
+  drawStarfield();
   drawRoad();
   drawHeadlights();
   let dx = 0;
@@ -413,6 +414,19 @@ function draw(dt) {
   ctx.restore();
 }
 
+// --- Update Logic ---
+function update(dt) {
+  // Move player left/right if keys are pressed
+  if (!gameOver) {
+    if (leftPressed) player.x -= player.speed * dt * 60;
+    if (rightPressed) player.x += player.speed * dt * 60;
+    // Clamp player to road bounds
+    player.x = Math.max(laneCenters[0], Math.min(laneCenters[2], player.x));
+  }
+  // Update obstacles
+  updateObstacles(dt);
+}
+
 // --- Main Loop ---
 let last = performance.now(); // Only ONE declaration allowed, before loop()
 function loop(now) {
@@ -422,7 +436,7 @@ function loop(now) {
   }
   let dt = Math.min(0.06, (now-last)/1000);
   last = now;
-  // No update(dt) function exists; only draw(dt) is needed
+  if (!gameOver) update(dt);
   draw(dt);
   requestAnimationFrame(loop);
 }
