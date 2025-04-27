@@ -308,7 +308,8 @@
       let laneWidth = Math.round((roadRight - roadLeft) / 3);
       for (let i = 1; i < 3; i++) {
         let x = Math.round(roadLeft + i * laneWidth);
-        for (let y = (-roadScroll % 32); y < h; y += 32) ctx.fillRect(x - 2, y, 4, 20);
+        // Reverse direction: stripes move downward
+        for (let y = (roadScroll % 32) - 32; y < h; y += 32) ctx.fillRect(x - 2, y, 4, 20);
       }
       // --- Road edge lines (blocky) ---
       ctx.fillStyle = '#222';
@@ -381,15 +382,22 @@
     function spawnObstacle() {
       // Only spawn trucks, never cars
       const lanes = [0, 1, 2];
-      let openLane = lanes[Math.floor(Math.random() * lanes.length)];
+      // Randomly choose 1 or 2 lanes to block, always leave at least 1 open
+      let lanesToBlock = lanes.slice();
+      // Shuffle
+      for (let i = lanesToBlock.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [lanesToBlock[i], lanesToBlock[j]] = [lanesToBlock[j], lanesToBlock[i]];
+      }
+      // Randomly decide to block 1 or 2 lanes
+      let blocks = Math.floor(Math.random() * 2) + 1;
+      lanesToBlock = lanesToBlock.slice(0, blocks);
       const spawnY = -80;
-      let spawned = 0;
       for (let lane = 0; lane < 3; lane++) {
-        if (lane === openLane) continue;
+        if (!lanesToBlock.includes(lane)) continue;
         const laneX = laneCenters[lane];
         let laneBlocked = obstacles.some(o => o.lane === lane && o.y < h && o.y > -120);
         if (laneBlocked) continue;
-        if (spawned >= 2) break;
         obstacles.push({
           x: laneX,
           y: spawnY,
@@ -399,11 +407,10 @@
           speed: 8 + Math.random() * 2,
           type: 'truck'
         });
-        spawned++;
       }
     }
-  obstacleInterval = Math.max(minInterval, 420 - distance);
-function draw(dt) {
+  document.getElementById('bestScore').textContent = bestScore;
+
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   drawStarfield();
   drawRoad();
@@ -421,6 +428,10 @@ function draw(dt) {
 function update(dt) {
   // Move player left/right if keys are pressed
   if (!gameOver) {
+    // Progress distance and score
+    distance += dt * 200; // Tune speed as needed
+    score = Math.floor(distance);
+
     // Scroll road
     roadScroll += dt * 320 * 0.5; // Adjust speed as needed
 
@@ -437,7 +448,11 @@ function update(dt) {
     }
   }
   // Update obstacles
-  updateObstacles(dt);
+  // Move obstacles, increase speed as distance increases, and despawn off-screen
+  for (let obs of obstacles) {
+    obs.y += obs.speed * dt * (1 + distance/1000);
+  }
+  obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
 
   // Collision detection
   for (let obs of obstacles) {
@@ -446,10 +461,20 @@ function update(dt) {
       Math.abs(player.y - obs.y) < (player.height + obs.height) / 2
     ) {
       gameOver = true;
+      // Update best score if needed
+      if (score > bestScore) {
+        bestScore = score;
+        try {
+          localStorage.setItem('nightdriver_best', bestScore);
+        } catch (e) {}
+      }
       document.getElementById('gameOverScreen').style.display = 'block';
       break;
     }
   }
+
+  // Make truck spawn interval decrease faster as you go
+  obstacleInterval = Math.max(minInterval, 180 - distance/3);
 }
 
 // --- Main Loop ---
@@ -518,6 +543,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Make obstacles spawn faster as you go
   obstacleInterval = Math.max(minInterval, 420 - distance);
 function draw(dt) {
+  document.getElementById('score').textContent = score + ' m';
+  document.getElementById('bestScore').textContent = bestScore;
+
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
   // 1. Road, neon background, starfield, etc.
   drawRoad();
