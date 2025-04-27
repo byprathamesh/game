@@ -526,14 +526,14 @@ function drawRoad() {
           obs.nearMissed = true;
           score += 10; // bonus points
         }
-  // Make obstacles spawn faster as you go
-  obstacleInterval = Math.max(minInterval, 700 - distance/2);
       }
     }
   }
+  // Make obstacles spawn faster as you go
+  obstacleInterval = Math.max(minInterval, 700 - distance/2);
 }
-    
-    function draw(dt) {
+
+function draw(dt) {
   // 1. Road, neon background, starfield, etc.
   drawRoad();
   // 2. Headlight cone
