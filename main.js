@@ -394,15 +394,19 @@ function draw(dt) {
     for (let i = 0; i < Math.min(12, Math.floor(distance/200)); i++) {
       let sx = player.x + (Math.random()-0.5)*40;
       let sy = player.y - 50 - Math.random()*120;
-      ctx.save();
-      ctx.globalAlpha = 0.22 + Math.random()*0.13;
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2 + Math.random();
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(sx, sy+30+Math.random()*20);
-      ctx.stroke();
-      ctx.restore();
+      // Only draw speed line if it ends above the player's top
+      let lineEndY = sy + 30 + Math.random()*20;
+      if (lineEndY < player.y - 36) {
+        ctx.save();
+        ctx.globalAlpha = 0.22 + Math.random()*0.13;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2 + Math.random();
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, lineEndY);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
   }
   drawPlayer();
