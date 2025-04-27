@@ -163,16 +163,14 @@ function drawObstacle(obs) {
 
 function spawnObstacle() {
   const lanes = [0, 1, 2];
-  let lanesToBlock = lanes.slice();
-  for (let i = lanesToBlock.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [lanesToBlock[i], lanesToBlock[j]] = [lanesToBlock[j], lanesToBlock[i]];
-  }
-  let blocks = Math.floor(Math.random() * 2) + 1;
-  lanesToBlock = lanesToBlock.slice(0, blocks);
+  // Always leave at least one lane empty
+  // Only 1 or 2 trucks per spawn
+  let numTrucks = Math.random() < 0.7 ? 1 : 2; // 70% chance 1 truck, 30% chance 2 trucks
+  let shuffled = lanes.slice().sort(() => Math.random() - 0.5);
+  let truckLanes = shuffled.slice(0, numTrucks);
   const spawnY = -80;
   for (let lane = 0; lane < 3; lane++) {
-    if (!lanesToBlock.includes(lane)) continue;
+    if (!truckLanes.includes(lane)) continue;
     const laneX = laneCenters[lane];
     let laneBlocked = obstacles.some(o => o.lane === lane && o.y < h && o.y > -120);
     if (laneBlocked) continue;
@@ -234,7 +232,8 @@ function update(dt) {
       break;
     }
   }
-  obstacleInterval = Math.max(minInterval, 180 - distance/3);
+  // Make spawn interval decrease more aggressively as distance increases
+obstacleInterval = Math.max(minInterval, 180 - distance/6); // gets harder faster
 }
 
 let lastTime = 0;
