@@ -22,20 +22,26 @@
     }
     #gameContainer {
       position: relative;
-      width: 360px;
-      height: 640px;
+      width: 100vw;
+      height: 100vh;
       max-width: 100vw;
       max-height: 100vh;
       box-shadow: 0 0 32px #0ff8, 0 0 8px #00f4, 0 0 0 #000;
       border-radius: 18px;
       overflow: hidden;
       background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     canvas {
       display: block;
       width: 100%;
       height: 100%;
       background: #000;
+      aspect-ratio: 9/16;
+      max-width: 100vw;
+      max-height: 100vh;
     }
     #hud {
       position: absolute;
@@ -110,6 +116,39 @@
       #gameContainer { width: 98vw; height: 70vw; min-height: 320px; }
     }
   </style>
+<script>
+// Responsive resize logic to maintain 360x640 aspect ratio
+function resizeGame() {
+  const aspect = 360 / 640;
+  let w = window.innerWidth;
+  let h = window.innerHeight;
+  if (w / h > aspect) {
+    w = h * aspect;
+  } else {
+    h = w / aspect;
+  }
+  const container = document.getElementById('gameContainer');
+  container.style.width = w + 'px';
+  container.style.height = h + 'px';
+  const canvas = container.querySelector('canvas');
+  if (canvas) {
+    canvas.width = 360;
+    canvas.height = 640;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+  }
+}
+window.addEventListener('resize', () => {
+  resizeGame();
+  updateLaneCenters();
+  player.x = laneCenters[playerLane];
+});
+document.addEventListener('DOMContentLoaded', () => {
+  resizeGame();
+  updateLaneCenters();
+  player.x = laneCenters[playerLane];
+});
+</script>
 </head>
 <body>
   <div id="gameContainer">
@@ -186,10 +225,20 @@
     }
 
     // --- Game State ---
-    let player = { x: w/2, y: h/2, width: 38, height: 64, speed: 15, color: '#0ff' }; // Car in center, even faster
-    let obstacles = [], obstacleTimer = 0, obstacleInterval = 540, minInterval = 90; // even faster spawn, higher min speed
+    const NUM_LANES = 3;
+    let laneCenters = [];
+    function updateLaneCenters() {
+      laneCenters = [];
+      for (let i = 0; i < NUM_LANES; i++) {
+        laneCenters.push(w * 0.21 + i * (w * 0.29));
+      }
+    }
+    updateLaneCenters();
+    let playerLane = 1; // Start in center lane
+    let player = { x: laneCenters[playerLane], y: h/2, width: 38, height: 64, speed: 15, color: '#0ff' };
+    let obstacles = [], obstacleTimer = 0, obstacleInterval = 540, minInterval = 90;
     let distance = 0, score = 0, bestScore = 0;
-    let speedMultiplier = 1; // Increases as distance increases
+    let speedMultiplier = 1;
     let gameOver = false;
     let leftPressed = false, rightPressed = false;
     // --- Controls ---
@@ -367,28 +416,24 @@
     function spawnObstacle() {
   // Strictly guarantee at least one open lane, never block all three lanes
   const lanes = [0, 1, 2];
-  // 1. Pick a random open lane
   let openLane = lanes[Math.floor(Math.random() * lanes.length)];
-  // 2. For each other lane, only spawn if no obstacle in that lane within y < 200
   const spawnY = -80;
-  for (let lane of lanes) {
-    if (lane === openLane) continue; // always leave this lane open
-    const laneX = w * 0.3 + lane * w * 0.2;
-    // Only spawn if no obstacle in this lane near the top
+  for (let lane = 0; lane < NUM_LANES; lane++) {
+    if (lane === openLane) continue;
+    const laneX = laneCenters[lane];
     let laneBlocked = obstacles.some(o => Math.abs(o.x - laneX) < 5 && o.y < 200);
     if (laneBlocked) continue;
-    // Randomly pick truck or car
     if (Math.random() < 0.6) {
       obstacles.push({
         x: laneX, y: spawnY, width: 36, height: 88 + Math.random() * 12,
         speed: (16 + Math.random() * 4 + distance / 60) * speedMultiplier,
-        color: '#ff0', type: 'truck'
+        color: '#ff0', type: 'truck', lane: lane
       });
     } else {
       obstacles.push({
         x: laneX, y: spawnY, width: 16, height: 32 + Math.random() * 6,
         speed: (14 + Math.random() * 4 + distance / 90) * speedMultiplier,
-        color: ['#f33', '#0ff', '#0f0'][Math.floor(Math.random() * 3)], type: 'car'
+        color: ['#f33', '#0ff', '#0f0'][Math.floor(Math.random() * 3)], type: 'car', lane: lane
       });
     }
   }
@@ -408,11 +453,18 @@
   if (roadScroll < -60) roadScroll += 60; // Make lane dashes scroll UP for forward feel
 
   // Player movement
-  const lateralSpeed = 5; // fixed, smooth, precise
-  if (leftPressed) player.x -= lateralSpeed;
-  if (rightPressed) player.x += lateralSpeed;
-  // Clamp to road
-  player.x = Math.max(w*0.21 + player.width/2, Math.min(w*0.79 - player.width/2, player.x));
+  // Lane-based movement (snap to lanes, classic endless runner)
+  if (leftPressed && playerLane > 0) {
+    playerLane--;
+    leftPressed = false;
+  }
+  if (rightPressed && playerLane < NUM_LANES - 1) {
+    playerLane++;
+    rightPressed = false;
+  }
+  player.x = laneCenters[playerLane];
+  // Clamp to road (redundant, but safe)
+  player.x = Math.max(laneCenters[0], Math.min(laneCenters[NUM_LANES-1], player.x));
   // Obstacles
   updateObstacles(dt);
   // Spawn
