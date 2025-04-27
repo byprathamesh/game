@@ -266,6 +266,7 @@ function drawPlayer() {
   ctx.fillRect(-20, 10, 7, 18);
   ctx.fillRect(13, 10, 7, 18);
   ctx.restore();
+  // No yellow dot or overlay
 }
 
 function drawObstacle(obs) {
