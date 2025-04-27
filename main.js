@@ -189,9 +189,24 @@ function spawnObstacle() {
   let shuffled = lanes.slice().sort(() => Math.random() - 0.5);
   let truckLanes = shuffled.slice(0, numTrucks);
   const spawnY = -120;
-  // Check for any existing trucks in this spawnY region (row)
-  let rowBlocked = obstacles.some(o => Math.abs(o.y - spawnY) < 100);
-  if (rowBlocked) return; // Wait until previous row moves down
+
+  // Prevent vertical overlap in the same lane
+  let minGap = 100; // min vertical gap between trucks in same lane
+  for (let lane of truckLanes) {
+    let overlap = obstacles.some(o => o.lane === lane && Math.abs(o.y - spawnY) < minGap);
+    if (overlap) return; // If any overlap, skip spawning this row entirely
+  }
+
+  // Guarantee at least one open lane in this vertical region
+  // Check for every lane if it will be blocked in this region
+  let futureObstacles = truckLanes.slice();
+  let openLaneExists = lanes.some(lane => !futureObstacles.includes(lane));
+  if (!openLaneExists) return; // Never allow all 3 lanes blocked
+
+  // Only spawn a new row if previous row is far enough down
+  let lastRowY = Math.max(...obstacles.map(o => o.y), 0);
+  if (lastRowY > spawnY + minGap) return;
+
   // Place trucks in chosen lanes for this row
   for (let lane of truckLanes) {
     let baseSpeed = 8 + Math.random() * 2 + distance / 600; // speed increases with distance
