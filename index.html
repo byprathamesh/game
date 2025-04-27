@@ -472,13 +472,6 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
-    document.getElementById('finalScore').textContent = Math.floor(distance);
-    document.getElementById('gameOverScreen').style.display = 'flex';
-    if (score > bestScore) {
-      bestScore = score;
-      localStorage.setItem('nightdriver_best', bestScore);
-    }
     document.getElementById('bestScore').textContent = bestScore;
   } else if (obs.type === 'car') {
     // Car collision: penalty, but NOT game over (no shake)
