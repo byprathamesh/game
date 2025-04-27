@@ -111,8 +111,13 @@ function restartGame() {
   obstacleInterval = 180;
   obstacleTimer = obstacleInterval;
   leftPressed = rightPressed = false;
+  // Reset shake effect
+  shake = 0;
+  shakeTimer = 0;
   document.getElementById('gameOverScreen').style.display = 'none';
   document.getElementById('finalScore').textContent = '0';
+  var scoreElem = document.getElementById('score');
+  if (scoreElem) scoreElem.textContent = '0 m';
   gameStartTime = Date.now(); // reset spawn timer
   lastTime = performance.now();
   requestAnimationFrame(loop);
@@ -241,8 +246,8 @@ function drawObstacle(obs) {
 let gameStartTime = Date.now();
 
 function spawnObstacle() {
-  // Wait 4 seconds after game start before spawning trucks
-  if (Date.now() - gameStartTime < 4000) return;
+  // Wait 1 second after game start before spawning trucks
+  if (Date.now() - gameStartTime < 1000) return;
 
   const lanes = [0, 1, 2];
   // Only allow two trucks if distance > 1000, otherwise always one
@@ -312,7 +317,7 @@ function draw(dt) {
 function update(dt) {
   if (!gameOver) {
     distance += dt * 200;
-    score = Math.floor(distance);
+    score = Math.floor(distance / 10); // 1 point per 10 meters
     roadScroll += dt * 320 * 0.5;
     if (leftPressed) player.x -= player.speed * dt * 60;
     if (rightPressed) player.x += player.speed * dt * 60;
