@@ -220,46 +220,34 @@
     }
     document.getElementById('restartBtn').onclick = restartGame;
     function drawRoad() {
-      ctx.save();
-      ctx.fillStyle = '#222';
-      ctx.fillRect(0, 0, w, h);
-      // Shoulders
-      ctx.fillStyle = '#0ff2';
-      ctx.fillRect(0, 0, w*0.18, h);
-      ctx.fillRect(w*0.82, 0, w*0.18, h);
-      // Road
-      ctx.fillStyle = '#222';
-      ctx.beginPath();
-      ctx.moveTo(w*0.18, 0);
-      ctx.lineTo(w*0.82, 0);
-      ctx.lineTo(w*0.7, h);
-      ctx.lineTo(w*0.3, h);
-      ctx.closePath();
-      ctx.fill();
-      // Neon lane lines (scrolling)
-      ctx.strokeStyle = '#0ff';
-      ctx.lineWidth = 4;
-      ctx.setLineDash([28, 24]);
-      ctx.lineDashOffset = roadScroll;
-      ctx.beginPath();
-      ctx.moveTo(w/2, 0);
-      ctx.lineTo(w/2, h);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      // Side lines (scrolling)
-      ctx.strokeStyle = '#0ff8';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([16, 18]);
-      ctx.lineDashOffset = roadScroll;
-      ctx.beginPath();
-      ctx.moveTo(w*0.24, 0);
-      ctx.lineTo(w*0.24, h);
-      ctx.moveTo(w*0.76, 0);
-      ctx.lineTo(w*0.76, h);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
+  ctx.save();
+  // Road background
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, w, h);
+  // Main road
+  ctx.fillStyle = '#222';
+  ctx.fillRect(w*0.19, 0, w*0.62, h);
+  // Solid white edge lines
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(w*0.19, 0);
+  ctx.lineTo(w*0.19, h);
+  ctx.moveTo(w*0.81, 0);
+  ctx.lineTo(w*0.81, h);
+  ctx.stroke();
+  // Dashed white lane lines (center)
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([28, 32]);
+  ctx.lineDashOffset = roadScroll;
+  ctx.beginPath();
+  ctx.moveTo(w/2, 0);
+  ctx.lineTo(w/2, h);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
     function drawPlayer() {
   ctx.save();
   ctx.shadowColor = '#0ff';
@@ -295,49 +283,38 @@
   ctx.restore();
 }
     function drawObstacle(obs) {
-      ctx.save();
-      ctx.shadowColor = obs.color;
-      ctx.shadowBlur = 12;
-      if (obs.type === 'truck') {
-        // Neon truck: cab + trailer
-        ctx.fillStyle = obs.color;
-        ctx.fillRect(obs.x-obs.width/2, obs.y-obs.height/2, obs.width, obs.height*0.65); // trailer
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(obs.x-obs.width/2, obs.y-obs.height/2+obs.height*0.65, obs.width, obs.height*0.35); // cab
-        ctx.strokeStyle = '#0ff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(obs.x-obs.width/2, obs.y-obs.height/2, obs.width, obs.height);
-        // Wheels
-        ctx.fillStyle = '#222';
-        ctx.beginPath();
-        ctx.arc(obs.x-obs.width/3, obs.y+obs.height/2-6, 6, 0, 2*Math.PI);
-        ctx.arc(obs.x+obs.width/3, obs.y+obs.height/2-6, 6, 0, 2*Math.PI);
-        ctx.fill();
-      } else {
-        // Neon car obstacle
-        ctx.fillStyle = obs.color;
-        ctx.beginPath();
-        ctx.moveTo(obs.x, obs.y-obs.height/2); // nose
-        ctx.lineTo(obs.x+obs.width/2-4, obs.y-obs.height/2+14); // right hood
-        ctx.lineTo(obs.x+obs.width/2, obs.y+obs.height/2-8); // right rear
-        ctx.lineTo(obs.x-obs.width/2, obs.y+obs.height/2-8); // left rear
-        ctx.lineTo(obs.x-obs.width/2+4, obs.y-obs.height/2+14); // left hood
-        ctx.closePath();
-        ctx.fill();
-        // Windows
-        ctx.globalAlpha = 0.6;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(obs.x-8, obs.y-obs.height/2+8, 16, 14);
-        ctx.globalAlpha = 1.0;
-        // Wheels
-        ctx.fillStyle = '#222';
-        ctx.fillRect(obs.x-obs.width/2+2, obs.y-obs.height/2+4, 6, 12);
-        ctx.fillRect(obs.x+obs.width/2-8, obs.y-obs.height/2+4, 6, 12);
-        ctx.fillRect(obs.x-obs.width/2+2, obs.y+obs.height/2-16, 6, 12);
-        ctx.fillRect(obs.x+obs.width/2-8, obs.y+obs.height/2-16, 6, 12);
-      }
-      ctx.restore();
-    }
+  ctx.save();
+  ctx.shadowColor = obs.color;
+  ctx.shadowBlur = 8;
+  if (obs.type === 'truck') {
+    // Truck viewed from behind: main rectangle, tail lights
+    ctx.fillStyle = obs.color;
+    ctx.fillRect(obs.x-obs.width/2, obs.y-obs.height/2, obs.width, obs.height);
+    // Tail lights
+    ctx.fillStyle = '#f00';
+    ctx.fillRect(obs.x-obs.width/2+3, obs.y+obs.height/2-7, 7, 7);
+    ctx.fillRect(obs.x+obs.width/2-10, obs.y+obs.height/2-7, 7, 7);
+    // Wheels
+    ctx.fillStyle = '#111';
+    ctx.fillRect(obs.x-obs.width/2+2, obs.y+obs.height/2-16, 8, 6);
+    ctx.fillRect(obs.x+obs.width/2-10, obs.y+obs.height/2-16, 8, 6);
+  } else {
+    // Car viewed from behind: rounded rectangle, tail lights
+    ctx.fillStyle = obs.color;
+    ctx.beginPath();
+    ctx.ellipse(obs.x, obs.y, obs.width/2, obs.height/2, 0, 0, 2*Math.PI);
+    ctx.fill();
+    // Tail lights
+    ctx.fillStyle = '#f00';
+    ctx.fillRect(obs.x-obs.width/2+4, obs.y+obs.height/2-7, 6, 6);
+    ctx.fillRect(obs.x+obs.width/2-10, obs.y+obs.height/2-7, 6, 6);
+    // Wheels
+    ctx.fillStyle = '#111';
+    ctx.fillRect(obs.x-obs.width/2+3, obs.y+obs.height/2-14, 6, 5);
+    ctx.fillRect(obs.x+obs.width/2-9, obs.y+obs.height/2-14, 6, 5);
+  }
+  ctx.restore();
+}
     function updateObstacles(dt) {
       for (let obs of obstacles) obs.y += obs.speed * dt;
       obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
