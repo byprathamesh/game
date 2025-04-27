@@ -269,26 +269,7 @@
 
     function drawRoad() {
       ctx.save();
-      // --- Minecraft grass on sides ---
-      if (textures.grass.complete && textures.grass.naturalWidth) {
-        for (let y = 0; y < h; y += 16) {
-          for (let x = 0; x < w * 0.21; x += 16) ctx.drawImage(textures.grass, x, y, 16, 16);
-          for (let x = w * 0.79; x < w; x += 16) ctx.drawImage(textures.grass, x, y, 16, 16);
-        }
-      } else {
-        ctx.fillStyle = '#3c8527';
-        ctx.fillRect(0, 0, w * 0.21, h);
-        ctx.fillRect(w * 0.79, 0, w * 0.21, h);
-      }
-      // --- Dirt under grass ---
-      if (textures.dirt.complete && textures.dirt.naturalWidth) {
-        for (let x = 0; x < w * 0.21; x += 16) ctx.drawImage(textures.dirt, x, h - 32, 16, 16);
-        for (let x = w * 0.79; x < w; x += 16) ctx.drawImage(textures.dirt, x, h - 32, 16, 16);
-      } else {
-        ctx.fillStyle = '#7c5a3a';
-        ctx.fillRect(0, h - 32, w * 0.21, 32);
-        ctx.fillRect(w * 0.79, h - 32, w * 0.21, 32);
-      }
+
       // --- Road (blocky stone) ---
       if (textures.stone.complete && textures.stone.naturalWidth) {
         for (let y = 0; y < h; y += 16) {
@@ -422,6 +403,13 @@ function update(dt) {
     if (rightPressed) player.x += player.speed * dt * 60;
     // Clamp player to road bounds
     player.x = Math.max(laneCenters[0], Math.min(laneCenters[2], player.x));
+
+    // Spawn trucks at intervals
+    obstacleTimer += dt * 1000;
+    if (obstacleTimer >= obstacleInterval) {
+      spawnObstacle();
+      obstacleTimer = 0;
+    }
   }
   // Update obstacles
   updateObstacles(dt);
