@@ -248,23 +248,33 @@ function drawObstacle(obs) {
   // Draw pixel art truck sprite if loaded, else fallback
   if (textures.truck.complete && textures.truck.naturalWidth) {
     ctx.drawImage(textures.truck, -obs.width/2, -obs.height/2, obs.width, obs.height);
-  ctx.fillStyle = '#cfcfcf';
-  ctx.fillRect(-16, -42, 32, 28);
-  // Grill
-  ctx.fillStyle = '#888';
-  ctx.fillRect(-10, -42, 20, 7);
-  // Headlights
-  ctx.fillStyle = '#ffe066';
-  ctx.fillRect(-18, -44, 7, 7);
-  ctx.fillRect(11, -44, 7, 7);
-  // Taillights (blink if fast truck)
-  if (obs.fast && Math.floor(Date.now()/200)%2 === 0) {
-    ctx.fillStyle = '#fff';
   } else {
-    ctx.fillStyle = '#ff3c28';
+    // Fallback: rectangle
+    ctx.strokeStyle = '#ffe066';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(-24, -44, 48, 88); // outline
+    ctx.fillStyle = obs.color || '#b97a57';
+    ctx.fillRect(-22, -42, 44, 84);
+    ctx.fillStyle = '#cfcfcf';
+    ctx.fillRect(-16, -42, 32, 28);
+    ctx.fillStyle = '#888';
+    ctx.fillRect(-10, -42, 20, 7);
+    ctx.fillStyle = '#ffe066';
+    ctx.fillRect(-18, -44, 7, 7);
+    ctx.fillRect(11, -44, 7, 7);
+    if (obs.fast && Math.floor(Date.now()/200)%2 === 0) {
+      ctx.fillStyle = '#fff';
+    } else {
+      ctx.fillStyle = '#ff3c28';
+    }
+    ctx.fillRect(-18, 37, 7, 7);
+    ctx.fillRect(11, 37, 7, 7);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-22, -30, 8, 18);
+    ctx.fillRect(14, -30, 8, 18);
+    ctx.fillRect(-22, 14, 8, 18);
+    ctx.fillRect(14, 14, 8, 18);
   }
-  ctx.fillRect(-18, 37, 7, 7);
-  ctx.fillRect(11, 37, 7, 7);
   // Wheels
   ctx.fillStyle = '#111';
   ctx.fillRect(-22, -30, 8, 18);
