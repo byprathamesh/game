@@ -154,10 +154,17 @@ function drawRoad() {
 }
 
 function drawScenery(x, y) {
-  // Randomly pick a type based on y
+  // Randomly pick a type based on y, and add a little vertical jitter
   let type = Math.floor((y/80)%3);
+  let jitter = ((Math.sin(y/27 + x) + Math.cos(y/41 - x))*5)|0;
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(x, y + jitter);
+  // Draw shadow/ground patch
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.ellipse(0, 18, 16, 7, 0, 0, 2*Math.PI); ctx.fill();
+  ctx.restore();
   if (type === 0) {
     // Tree
     ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill();
@@ -166,6 +173,11 @@ function drawScenery(x, y) {
     // Lamp post
     ctx.fillStyle = '#bbb'; ctx.fillRect(-2, -10, 4, 20);
     ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(0,-12,5,0,Math.PI*2); ctx.fill();
+    // Lamp glow
+    ctx.save();
+    ctx.globalAlpha = 0.15;
+    ctx.beginPath(); ctx.ellipse(0, 8, 18, 10, 0, 0, 2*Math.PI); ctx.fillStyle = '#ffe066'; ctx.fill();
+    ctx.restore();
   } else {
     // Sign
     ctx.fillStyle = '#fff'; ctx.fillRect(-7,-7,14,14);
@@ -351,8 +363,14 @@ function update(dt) {
     }
   }
   // Make spawn interval decrease more aggressively as distance increases
-// Truck spawn interval gets much faster as distance increases
-obstacleInterval = Math.max(minInterval, 180 - distance/10);
+// Truck spawn interval and speed get much harder, much faster
+let difficulty = distance > 2000 ? 2.5 : distance > 1000 ? 1.7 : 1.0;
+obstacleInterval = Math.max(minInterval, 140 - (distance/7)*difficulty); // faster spawn
+for (let obs of obstacles) {
+  if (obs.type === 'truck') {
+    obs.speed = 8 + (distance/350)*difficulty + (obs.fast ? 4 : 0) + Math.random()*2;
+  }
+}
 }
 
 let lastTime = 0;
