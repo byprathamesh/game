@@ -231,10 +231,10 @@ function resizeGame() {
 let laneCenters = [];
 function updateLaneCenters() {
   laneCenters = [];
-  // Road from w * 0.21 to w * 0.79, evenly spaced for 3 lanes
-  let roadLeft = w * 0.21;
-  let roadRight = w * 0.79;
-  let laneWidth = (roadRight - roadLeft) / 3; // 3 lanes, 2 dashed lines
+  // Road from w * 0.18 to w * 0.82 for more space, evenly spaced for 3 lanes
+  let roadLeft = w * 0.18;
+  let roadRight = w * 0.82;
+  let laneWidth = (roadRight - roadLeft) / 3;
   for (let i = 0; i < 3; i++) {
     laneCenters.push(roadLeft + laneWidth/2 + i * laneWidth);
   }
@@ -308,8 +308,8 @@ function drawRoad() {
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 4;
   ctx.setLineDash([32, 32]);
-  let roadLeft = w * 0.21;
-  let roadRight = w * 0.79;
+  let roadLeft = w * 0.18;
+  let roadRight = w * 0.82;
   let laneWidth = (roadRight - roadLeft) / 3;
   for (let i = 1; i < 3; i++) {
     let x = roadLeft + i * laneWidth;
@@ -436,12 +436,15 @@ function drawRoad() {
   // Randomly pick one lane to remain open
   let openLane = lanes[Math.floor(Math.random() * lanes.length)];
   const spawnY = -80;
-  for (let lane = 0; lane < NUM_LANES; lane++) {
+  let spawned = 0;
+  for (let lane = 0; lane < 3; lane++) {
     if (lane === openLane) continue;
-    const laneX = laneCenters[lane]; // obstacles always centered in lane
+    const laneX = laneCenters[lane];
     // Only spawn if no obstacle is already in this lane and visible
     let laneBlocked = obstacles.some(o => o.lane === lane && o.y < h && o.y > -120);
     if (laneBlocked) continue;
+    // Prevent spawning more than two obstacles (one per non-open lane)
+    if (spawned >= 2) break;
     if (Math.random() < 0.6) {
       obstacles.push({
         x: laneX, y: spawnY, width: 36, height: 88 + Math.random() * 12,
@@ -455,6 +458,7 @@ function drawRoad() {
         color: ['#f33', '#0ff', '#0f0'][Math.floor(Math.random() * 3)], type: 'car', lane: lane
       });
     }
+    spawned++;
   }
 }
 
