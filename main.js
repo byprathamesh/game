@@ -408,11 +408,8 @@ function update(dt) {
     let nearMiss = !gameOver && Math.abs(player.x - obs.x) < (player.width + obs.width)/2 + 10 &&
         Math.abs(player.y - obs.y) < (player.height + obs.height)/2 + 10 &&
         !(Math.abs(player.x - obs.x) < (player.width + obs.width)/2 && Math.abs(player.y - obs.y) < (player.height + obs.height)/2);
-    if (nearMiss) {
-      triggerShake(0.2);
-      spawnParticle(player.x, player.y-24, '#ffe066', (Math.random()-0.5)*2, -2-Math.random()*1.5, 0.35, 3);
-      scoreMultiplier = 2; // Double score for brief period
-    }
+    // No near-miss effects: no shake, no particles, no multiplier
+
   }
   // No coin or power-up logic
 
@@ -423,7 +420,6 @@ function update(dt) {
       Math.abs(player.y - obs.y) < (player.height + obs.height) / 2
     ) {
       gameOver = true;
-      triggerShake(2.5);
       document.getElementById('gameOverScreen').style.display = 'flex';
       document.getElementById('finalScore').textContent = score;
       break;
