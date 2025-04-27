@@ -20,6 +20,44 @@ const ctx = canvas.getContext('2d');
 const w = canvas.width, h = canvas.height;
 let roadScroll = 0;
 
+// --- Particle System ---
+let particles = [];
+function spawnParticle(x, y, color, vx, vy, life, size=3) {
+  particles.push({x, y, color, vx, vy, life, size});
+}
+function updateParticles(dt) {
+  for (let p of particles) {
+    p.x += p.vx * dt * 60;
+    p.y += p.vy * dt * 60;
+    p.life -= dt;
+  }
+  particles = particles.filter(p => p.life > 0);
+}
+function drawParticles() {
+  for (let p of particles) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, p.life/0.6);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, 2*Math.PI);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// --- Fade-in overlay ---
+let fadeAlpha = 1, fadeDir = -1; // -1: fade in, 1: fade out
+function drawFade() {
+  if (fadeAlpha > 0) {
+    ctx.save();
+    ctx.globalAlpha = fadeAlpha;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
+}
+
+
 // --- Starfield ---
 function drawStarfield() {
   ctx.fillStyle = '#000';
@@ -74,15 +112,17 @@ function updateLaneCenters() {
 updateLaneCenters();
 let player = { x: laneCenters[1], y: h - 100, width: 44, height: 74, speed: 15, color: '#0ff' }; // Larger, more visible player
 let obstacles = [], obstacleTimer = 0, obstacleInterval = 180, minInterval = 60;
-let distance = 0, score = 0;
+let distance = 0, score = 0, scoreMultiplier = 1;
 let speedMultiplier = 1;
 let gameOver = false;
+let paused = false; // Pause state
 
 // --- Input State ---
 let leftPressed = false, rightPressed = false;
 window.addEventListener('keydown', e => {
   if (e.key === 'a' || e.key === 'ArrowLeft') leftPressed = true;
   if (e.key === 'd' || e.key === 'ArrowRight') rightPressed = true;
+  if (e.key === 'p' || e.key === 'P') paused = !paused;
   if (gameOver && (e.key === ' ' || e.key === 'Enter')) restartGame();
 });
 window.addEventListener('keyup', e => {
@@ -187,6 +227,10 @@ function drawScenery(x, y) {
 }
 
 function drawPlayer() {
+  // Exhaust smoke
+  if (!gameOver && Math.random() < 0.6) {
+    spawnParticle(player.x, player.y+38, '#888', (Math.random()-0.5)*0.8, 1.5+Math.random()*0.8, 0.5, 4);
+  }
   ctx.save();
   ctx.translate(Math.round(player.x), Math.round(player.y));
   ctx.strokeStyle = '#fff';
@@ -219,6 +263,24 @@ function drawPlayer() {
 }
 
 function drawObstacle(obs) {
+  if (obs.type === 'coin') {
+    ctx.save();
+    ctx.translate(Math.round(obs.x), Math.round(obs.y));
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.arc(0,0,13,0,2*Math.PI); ctx.fillStyle = '#ffd700'; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  if (obs.type === 'power') {
+    ctx.save();
+    ctx.translate(Math.round(obs.x), Math.round(obs.y));
+    ctx.globalAlpha = 0.82;
+    ctx.beginPath(); ctx.arc(0,0,13,0,2*Math.PI); ctx.fillStyle = '#0ff'; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.restore();
+    return;
+  }
   ctx.save();
   ctx.translate(Math.round(obs.x), Math.round(obs.y));
   ctx.strokeStyle = '#ffe066';
@@ -307,10 +369,28 @@ function spawnObstacle() {
       fast: isFast
     });
   }
+  // Occasionally spawn coins/powerups
+  if (Math.random() < 0.13) {
+    let lane = truckLanes[Math.floor(Math.random()*truckLanes.length)];
+    let kind = Math.random() < 0.7 ? 'coin' : 'power';
+    obstacles.push({
+      x: laneCenters[lane],
+      y: spawnY-40,
+      lane,
+      width: 26,
+      height: 26,
+      speed: 10,
+      type: kind
+    });
+  }
 }
 
 // --- Main Draw Function ---
 function draw(dt) {
+  // Fade in at game start
+  if (fadeAlpha > 0 && fadeDir < 0) fadeAlpha = Math.max(0, fadeAlpha - dt*1.2);
+  if (fadeAlpha > 0 && fadeDir > 0) fadeAlpha = Math.min(1, fadeAlpha + dt*2.5);
+
   var scoreElem = document.getElementById('score');
   if (scoreElem) scoreElem.textContent = score + ' m';
   if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
@@ -321,15 +401,42 @@ function draw(dt) {
   if (shake > 0) dx = (Math.random()-0.5)*shake;
   ctx.save();
   ctx.translate(dx, 0);
+  // Speed lines
+  if (!gameOver && distance > 600) {
+    for (let i = 0; i < Math.min(12, Math.floor(distance/200)); i++) {
+      let sx = player.x + (Math.random()-0.5)*40;
+      let sy = player.y - 50 - Math.random()*120;
+      ctx.save();
+      ctx.globalAlpha = 0.22 + Math.random()*0.13;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2 + Math.random();
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx, sy+30+Math.random()*20);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
   drawPlayer();
+  drawParticles();
   for (let obs of obstacles) drawObstacle(obs);
   ctx.restore();
 }
 
 function update(dt) {
+  if (paused) return;
   if (!gameOver) {
     distance += dt * 200;
-    score = Math.floor(distance / 10); // 1 point per 10 meters
+    score += Math.floor(dt * 20 * scoreMultiplier); // slower, but with multiplier
+    // Lane narrowing
+    if (distance > 800) {
+      let shrink = Math.min(0.23, (distance-800)/6000);
+      let roadLeft = Math.round(w * (0.10 + shrink));
+      let roadRight = Math.round(w * (0.90 - shrink));
+      let laneWidth = Math.round((roadRight - roadLeft) / 3);
+      for (let i = 0; i < 3; i++) laneCenters[i] = Math.round(roadLeft + laneWidth/2 + i*laneWidth);
+    }
+
     roadScroll += dt * 320 * 0.5;
     if (leftPressed) player.x -= player.speed * dt * 60;
     if (rightPressed) player.x += player.speed * dt * 60;
@@ -343,10 +450,26 @@ function update(dt) {
   for (let obs of obstacles) {
     obs.y += Math.abs(obs.speed) * dt * (1 + distance/1000);
     // Near-miss shake: if player is close but not colliding
-    if (!gameOver && Math.abs(player.x - obs.x) < (player.width + obs.width)/2 + 10 &&
+    let nearMiss = !gameOver && Math.abs(player.x - obs.x) < (player.width + obs.width)/2 + 10 &&
         Math.abs(player.y - obs.y) < (player.height + obs.height)/2 + 10 &&
-        !(Math.abs(player.x - obs.x) < (player.width + obs.width)/2 && Math.abs(player.y - obs.y) < (player.height + obs.height)/2)) {
+        !(Math.abs(player.x - obs.x) < (player.width + obs.width)/2 && Math.abs(player.y - obs.y) < (player.height + obs.height)/2);
+    if (nearMiss) {
       triggerShake(0.2);
+      spawnParticle(player.x, player.y-24, '#ffe066', (Math.random()-0.5)*2, -2-Math.random()*1.5, 0.35, 3);
+      scoreMultiplier = 2; // Double score for brief period
+    }
+  }
+  // Power-up/coin pickup logic
+  for (let obs of obstacles) {
+    if (obs.type === 'coin' && Math.abs(player.x - obs.x) < (player.width + obs.width)/2 && Math.abs(player.y - obs.y) < (player.height + obs.height)/2) {
+      score += 100;
+      spawnParticle(obs.x, obs.y, '#ffd700', (Math.random()-0.5)*2, -2, 0.6, 6);
+      obs.y = h+200; // Remove coin
+    }
+    if (obs.type === 'power' && Math.abs(player.x - obs.x) < (player.width + obs.width)/2 && Math.abs(player.y - obs.y) < (player.height + obs.height)/2) {
+      scoreMultiplier = 5;
+      spawnParticle(obs.x, obs.y, '#0ff', (Math.random()-0.5)*2, -2, 0.7, 8);
+      obs.y = h+200; // Remove powerup
     }
   }
   obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
