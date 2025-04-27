@@ -49,7 +49,7 @@ function updateLaneCenters() {
   for (let i = 0; i < 3; i++) laneCenters.push(Math.round(roadLeft + laneWidth/2 + i*laneWidth));
 }
 updateLaneCenters();
-let player = { x: laneCenters[1], y: h - 80, width: 38, height: 64, speed: 15, color: '#0ff' }; // Start near bottom center lane
+let player = { x: laneCenters[1], y: h - 100, width: 44, height: 74, speed: 15, color: '#0ff' }; // Larger, more visible player
 let obstacles = [], obstacleTimer = 0, obstacleInterval = 180, minInterval = 60;
 let distance = 0, score = 0;
 let speedMultiplier = 1;
@@ -120,67 +120,87 @@ function drawPlayer() {
   ctx.save();
   ctx.translate(Math.round(player.x), Math.round(player.y));
   ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(-19, -32, 38, 64); // outline
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-19, -32, 38, 64);
-  ctx.fillStyle = '#3498db';
-  ctx.fillRect(-15, -22, 30, 18);
+  ctx.lineWidth = 4;
+  ctx.strokeRect(-22, -37, 44, 74); // outline
+  // Body
+  ctx.fillStyle = '#232323';
+  ctx.fillRect(-20, -35, 40, 70);
+  // Blue window
+  ctx.fillStyle = '#5a8fd6';
+  ctx.fillRect(-13, -25, 26, 14);
+  // Headlights
   ctx.fillStyle = '#fff';
-  ctx.fillRect(-11, -16, 22, 8);
-  ctx.fillStyle = '#222';
-  ctx.fillRect(-19, 24, 8, 8);
-  ctx.fillRect(11, 24, 8, 8);
+  ctx.fillRect(-10, -37, 8, 6);
+  ctx.fillRect(2, -37, 8, 6);
+  // Taillights
   ctx.fillStyle = '#ff3c28';
-  ctx.fillRect(-7, 28, 6, 4);
-  ctx.fillRect(1, 28, 6, 4);
+  ctx.fillRect(-10, 31, 8, 6);
+  ctx.fillRect(2, 31, 8, 6);
+  // Grill
+  ctx.fillStyle = '#666';
+  ctx.fillRect(-8, -35, 16, 5);
+  // Wheels
+  ctx.fillStyle = '#111';
+  ctx.fillRect(-20, -25, 7, 18);
+  ctx.fillRect(13, -25, 7, 18);
+  ctx.fillRect(-20, 10, 7, 18);
+  ctx.fillRect(13, 10, 7, 18);
   ctx.restore();
 }
 
 function drawObstacle(obs) {
   ctx.save();
   ctx.translate(Math.round(obs.x), Math.round(obs.y));
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(-16, -32, 32, 64); // outline
+  ctx.strokeStyle = '#ffe066';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(-24, -44, 48, 88); // outline
+  // Truck body
   ctx.fillStyle = '#b97a57';
-  ctx.fillRect(-16, -32, 32, 64);
+  ctx.fillRect(-22, -42, 44, 84);
+  // Cabin
   ctx.fillStyle = '#cfcfcf';
-  ctx.fillRect(-12, -32, 24, 18);
+  ctx.fillRect(-16, -42, 32, 28);
+  // Grill
   ctx.fillStyle = '#888';
-  ctx.fillRect(-8, -32, 16, 4);
+  ctx.fillRect(-10, -42, 20, 7);
+  // Headlights
   ctx.fillStyle = '#ffe066';
-  ctx.fillRect(-14, -32, 6, 4);
-  ctx.fillRect(8, -32, 6, 4);
+  ctx.fillRect(-18, -44, 7, 7);
+  ctx.fillRect(11, -44, 7, 7);
+  // Taillights
   ctx.fillStyle = '#ff3c28';
-  ctx.fillRect(-14, 28, 6, 4);
-  ctx.fillRect(8, 28, 6, 4);
-  ctx.fillStyle = '#222';
-  ctx.fillRect(-16, 24, 8, 8);
-  ctx.fillRect(8, 24, 8, 8);
+  ctx.fillRect(-18, 37, 7, 7);
+  ctx.fillRect(11, 37, 7, 7);
+  // Wheels
+  ctx.fillStyle = '#111';
+  ctx.fillRect(-22, -30, 8, 18);
+  ctx.fillRect(14, -30, 8, 18);
+  ctx.fillRect(-22, 14, 8, 18);
+  ctx.fillRect(14, 14, 8, 18);
   ctx.restore();
 }
 
 function spawnObstacle() {
   const lanes = [0, 1, 2];
-  // Always leave at least one lane empty
-  // Only 1 or 2 trucks per spawn
-  let numTrucks = Math.random() < 0.7 ? 1 : 2; // 70% chance 1 truck, 30% chance 2 trucks
+  // Only allow two trucks if distance > 1000, otherwise always one
+  let allowTwo = distance > 1000;
+  let numTrucks = allowTwo && Math.random() < 0.5 ? 2 : 1;
+  // Shuffle lanes and pick which lanes to spawn in
   let shuffled = lanes.slice().sort(() => Math.random() - 0.5);
   let truckLanes = shuffled.slice(0, numTrucks);
-  const spawnY = -80;
-  for (let lane = 0; lane < 3; lane++) {
-    if (!truckLanes.includes(lane)) continue;
-    const laneX = laneCenters[lane];
-    let laneBlocked = obstacles.some(o => o.lane === lane && o.y < h && o.y > -120);
+  const spawnY = -120;
+  for (let lane of truckLanes) {
+    // Prevent stacking: only spawn if no truck is close in this lane
+    let laneBlocked = obstacles.some(o => o.lane === lane && o.y < h && o.y > -200);
     if (laneBlocked) continue;
+    let baseSpeed = 8 + Math.random() * 2 + distance / 600; // speed increases with distance
     obstacles.push({
-      x: laneX,
+      x: laneCenters[lane],
       y: spawnY,
       lane,
-      width: 32,
-      height: 64,
-      speed: 8 + Math.random() * 2,
+      width: 48,
+      height: 88,
+      speed: baseSpeed,
       type: 'truck'
     });
   }
@@ -233,7 +253,8 @@ function update(dt) {
     }
   }
   // Make spawn interval decrease more aggressively as distance increases
-obstacleInterval = Math.max(minInterval, 180 - distance/6); // gets harder faster
+// Truck spawn interval gets much faster as distance increases
+obstacleInterval = Math.max(minInterval, 180 - distance/10);
 }
 
 let lastTime = 0;
