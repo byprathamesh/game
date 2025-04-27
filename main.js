@@ -62,12 +62,10 @@ function drawFade() {
 function drawStarfield() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, w, h);
-  // Starfield: static stars for night effect
+  // Starfield: static, no sparkle or twinkle
   for (let i = 0; i < 24; i++) {
     ctx.fillStyle = '#fff';
-    ctx.globalAlpha = 0.7;
     ctx.fillRect(Math.floor((i*53)%w), Math.floor((i*191)%h), 2, 2);
-    ctx.globalAlpha = 1.0;
   }
 }
 
@@ -110,7 +108,7 @@ const laneCenters = [
   Math.round(roadLeft + laneWidth/2 + 2*laneWidth)
 ];
 let player = { x: laneCenters[1], y: Math.round(h * 0.65), width: 44, height: 74, speed: 15, color: '#0ff' }; // Centered player
-let obstacles = [], obstacleTimer = 0, obstacleInterval = 180, minInterval = 60;
+let obstacles = [], obstacleTimer = 0, obstacleInterval = 120, minInterval = 38; // Increased difficulty: obstacles appear more frequently
 let distance = 0, score = 0, scoreMultiplier = 1;
 let speedMultiplier = 1;
 let gameOver = false;
