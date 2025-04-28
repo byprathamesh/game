@@ -1,5 +1,7 @@
 # Auto Rickshaw Wala
 
+*vat mazhi bagtoy rickshaw wala*
+
 A minimalist, neon-themed endless vertical racer. Steer your pixel art auto rickshaw down a dark, winding road, dodge trucks, and rack up your best score!
 
 ## Features
