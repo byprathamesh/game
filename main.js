@@ -738,20 +738,21 @@ function initThreeJS() {
         playerGroup.remove(playerGroup.children[0]); 
       }
       playerGroup.add(model); 
+      console.log("Model children:", model.children); // Log children of the model
 
       // --- Width Calculation for Collision ---
-      // Calculate bounding box for the playerGroup, which now contains the fully transformed model
-      const finalPlayerGroupBox = new THREE.Box3().setFromObject(playerGroup);
-      const finalPlayerGroupSize = new THREE.Vector3();
-      finalPlayerGroupBox.getSize(finalPlayerGroupSize);
+      // Calculate bounding box for the model itself after all transformations
+      const finalModelBox = new THREE.Box3().setFromObject(model); // Use model directly
+      const finalModelSize = new THREE.Vector3();
+      finalModelBox.getSize(finalModelSize);
       
-      console.log("Final playerGroup BoundingBox Size (for collision width):", finalPlayerGroupSize);
+      console.log("Final Model BoundingBox Size (for collision width):", finalModelSize);
 
-      if (finalPlayerGroupSize.x > 0.0001 && !isNaN(finalPlayerGroupSize.x)) {
-          playerRickshawScaledBodyWidth = finalPlayerGroupSize.x;
+      if (finalModelSize.x > 0.0001 && !isNaN(finalModelSize.x)) {
+          playerRickshawScaledBodyWidth = finalModelSize.x;
       } else {
           playerRickshawScaledBodyWidth = 1.8; // Fallback width
-          console.warn(`Calculated collision width (${finalPlayerGroupSize.x}) is invalid or zero. Using fallback width: ${playerRickshawScaledBodyWidth}`);
+          console.warn(`Calculated collision width from model (${finalModelSize.x}) is invalid or zero. Using fallback width: ${playerRickshawScaledBodyWidth}`);
       }
       console.log('Rickshaw model processed. Final collision width:', playerRickshawScaledBodyWidth);
 
