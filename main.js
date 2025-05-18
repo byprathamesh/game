@@ -6,7 +6,7 @@
 
 let scene, camera, renderer;
 let playerGroup, groundMesh;
-let testCube; // Declare testCube globally for logging
+// let testCube; // Declare testCube globally for logging
 // Keep input state global for now
 let leftPressed = false, rightPressed = false;
 let textureLoader; // Declare textureLoader globally or pass it around
@@ -19,7 +19,7 @@ const initialObstacleSpeed = 0.3; // Slightly reduced initial speed
 let currentObstacleSpeed = initialObstacleSpeed;
 const maxObstacleSpeed = 1.0; // Cap for obstacle speed
 
-let obstacleSpawnTimer = 0;
+let obstacleSpawnTimer = initialObstacleSpawnInterval / 60.0; // MODIFIED - Initial delay
 const initialObstacleSpawnInterval = 120; // Approx 2 seconds at 60fps
 let currentObstacleSpawnInterval = initialObstacleSpawnInterval;
 const minObstacleSpawnInterval = 45; // Minimum interval (approx 0.75 seconds)
@@ -62,7 +62,7 @@ const truckHeadlightMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0,
 const truckTaillightMaterial = new THREE.MeshStandardMaterial({ color: 0xFF0000, emissive: 0x880000 });
 
 let sceneryObjects = [];
-let scenerySpawnTimer = 0;
+let scenerySpawnTimer = scenerySpawnInterval / 60.0; // MODIFIED - Initial delay
 const scenerySpawnInterval = 90; // Spawn scenery a bit more frequently than obstacles
 const scenerySpeedFactor = 0.95; // Scenery moves slightly slower than road for parallax
 
@@ -75,7 +75,7 @@ const poleLightMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0, emis
 
 let clock = new THREE.Clock(); // Add clock for delta time in animation
 let isPlayerModelLoaded = false; // Flag to indicate if the GLTF model has loaded
-const desiredRickshawHeight = 1.5; // Define this globally or pass as param
+const desiredRickshawHeight = 3.5; // Define this globally or pass as param
 const roadWidth = 30; // Assuming this is defined somewhere, needed for lane boundaries
 
 window.onload = function() {
@@ -521,89 +521,93 @@ function updatePlayerMaterial() {
 }
 
 function initThreeJS() {
-  const canvas = document.getElementById('gameCanvas');
-  if (!canvas) {
-    console.error('Canvas element #gameCanvas not found!');
-    return;
-  }
-
-  // Scene
+  console.log("DEBUG: initThreeJS called");
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87CEEB); // Sky blue background
+  // scene.background = new THREE.Color(0x87CEEB); // Sky blue background // Keep this for now
 
-  // Camera
-  camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-  // Initial camera position - will be fixed for debugging first
-  camera.position.set(0, 5, 15); // Fixed position
-  camera.lookAt(0, 0, 0);       // Fixed target
-  console.log("DEBUG: Initial Camera Position:", camera.position.x, camera.position.y, camera.position.z);
-  console.log("DEBUG: Camera is looking at (0,0,0)");
-
-  // Renderer
-  renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-  renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-  renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.shadowMap.enabled = true;
-  document.getElementById('gameContainer').appendChild(renderer.domElement);
-
-  // Handle canvas resizing
-  const resizeObserver = new ResizeObserver(entries => {
-    for (let entry of entries) {
-      const { width, height } = entry.contentRect;
-      renderer.setSize(width, height);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-    }
-  });
-  resizeObserver.observe(canvas);
-
-  // Lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  // More advanced lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Softer ambient light
   scene.add(ambientLight);
+
   const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  directionalLight.position.set(5, 10, 7);
-  directionalLight.castShadow = true;
+  directionalLight.position.set(5, 10, 7.5);
+  directionalLight.castShadow = true; // Enable shadows for this light
+  // Configure shadow properties (optional, but good for performance/quality)
+  directionalLight.shadow.mapSize.width = 1024; // default is 512
+  directionalLight.shadow.mapSize.height = 1024; // default is 512
+  directionalLight.shadow.camera.near = 0.5;    // default
+  directionalLight.shadow.camera.far = 50;     // default
+  directionalLight.shadow.camera.left = -20;
+  directionalLight.shadow.camera.right = 20;
+  directionalLight.shadow.camera.top = 20;
+  directionalLight.shadow.camera.bottom = -20;
   scene.add(directionalLight);
 
-  // Ground Plane (Road)
-  const groundGeometry = new THREE.PlaneGeometry(roadWidth, 200); // roadWidth x length
-  // Placeholder material, actual texture loaded in loadRoadTexture()
-  groundMaterial = new THREE.MeshStandardMaterial({ color: 0x444444, side: THREE.DoubleSide }); 
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  // camera.position.set(0, 5, 10); // Initial fixed camera for debugging
+  // camera.lookAt(0, 0, 0);       // Look at scene origin for debugging
+  console.log(`DEBUG: Initial Camera Position: ${camera.position.x} ${camera.position.y} ${camera.position.z}`);
+  console.log(`DEBUG: Camera is looking at (0,0,0)`);
+
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true; // Enable shadow mapping in the renderer
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Optional: for softer shadows
+  document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+
+  // Ground
+  const groundGeometry = new THREE.PlaneGeometry(roadWidth, 400); // Ground width from variable, increased length
+  const groundMaterial = new THREE.MeshStandardMaterial({
+    color: 0x404040, // Darker grey for asphalt
+    side: THREE.DoubleSide,
+    map: null // Will be set by loadRoadTexture
+  });
   groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
   groundMesh.rotation.x = -Math.PI / 2;
-  groundMesh.receiveShadow = true;
+  groundMesh.position.y = -0.05; // Slightly below y=0 to avoid z-fighting with model at y=0
+  groundMesh.receiveShadow = true; // Ground should receive shadows
   scene.add(groundMesh);
+  console.log("DEBUG: Ground mesh created and added to scene.");
 
-  // Lane Markings (Placeholder - can be refined or use texture)
-  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
-  const points = [];
-  points.push(new THREE.Vector3(-roadWidth / 6, 0, -100));
-  points.push(new THREE.Vector3(-roadWidth / 6, 0, 100));
-  let line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), lineMaterial);
-  scene.add(line);
-  points.length = 0; // Clear points array
-  points.push(new THREE.Vector3(roadWidth / 6, 0, -100));
-  points.push(new THREE.Vector3(roadWidth / 6, 0, 100));
-  line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), lineMaterial);
-  scene.add(line);
 
-  // Player Rickshaw Model (Refined Black and Yellow)
+  // Player Group (acts as the pivot/center for the player model)
   playerGroup = new THREE.Group();
-  // scene.add(playerGroup); // IMPORTANT: playerGroup is added to scene INSIDE loadGLTFModel after model is ready
-  // playerGroup.position.set(0, 0, 3); // Initial position is set INSIDE loadGLTFModel
+  playerGroup.position.set(lanePositions[1], 0, 3); // Start in the middle lane, slightly forward
+  scene.add(playerGroup);
+  console.log(`DEBUG: Player group created at ${playerGroup.position.x}, ${playerGroup.position.y}, ${playerGroup.position.z}`);
 
-  // Load the GLTF model for the player
-  loadGLTFModel(); 
 
-  // Test Cube for visibility check
-  const testGeometry = new THREE.BoxGeometry(1, 1, 1);
-  const testMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Bright red
-  testCube = new THREE.Mesh(testGeometry, testMaterial);
-  testCube.position.set(0, 0.5, 0); // At origin, slightly above ground
-  scene.add(testCube);
-  console.log("DEBUG: Test Cube added at scene origin, position:", testCube.position);
+  // Test Cube (Commented Out - No longer needed for model visibility debugging)
+  // const testGeometry = new THREE.BoxGeometry(1, 1, 1);
+  // const testMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+  // testCube = new THREE.Mesh(testGeometry, testMaterial);
+  // testCube.position.set(0, 0.5, 0); // Position it at the scene origin for reference
+  // testCube.castShadow = true;
+  // scene.add(testCube);
+  // console.log("DEBUG: Test Cube added at scene origin, position:", testCube.position);
 
-  animate(); // Start the 3D animation loop
+
+  // Load the GLTF model
+  loadGLTFModel();
+  console.log("DEBUG: loadGLTFModel called from initThreeJS");
+
+
+  // Initial call to animate
+  animate();
+  console.log("DEBUG: Initial animate call from initThreeJS");
+
+
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    console.log("DEBUG: Window resized, camera and renderer updated.");
+  }, false);
 }
 
 function loadGLTFModel() {
@@ -719,9 +723,9 @@ function animate() {
   const delta = clock.getDelta();
 
   // Update road texture offset for scrolling effect
-  if (groundMaterial && groundMaterial.map) {
-    if (!groundMaterial.map.offset) groundMaterial.map.offset = new THREE.Vector2();
-    groundMaterial.map.offset.y -= roadScrollSpeed * delta * 10; 
+  if (groundMesh.material && groundMesh.material.map) {
+    if (!groundMesh.material.map.offset) groundMesh.material.map.offset = new THREE.Vector2();
+    groundMesh.material.map.offset.y -= roadScrollSpeed * delta * 10;
   }
 
   // Player movement
@@ -744,10 +748,76 @@ function animate() {
   // Obstacle/Scenery/Collision (Still disabled for model visibility debugging)
   // ...
 
+  // NEW Obstacle and Scenery Management
+  if (!gameOver) {
+    obstacleSpawnTimer -= delta;
+    if (obstacleSpawnTimer <= 0) {
+      spawnObstacle();
+      obstacleSpawnTimer = currentObstacleSpawnInterval / 60.0; // Reset timer (assumes interval is in frames)
+    }
+
+    scenerySpawnTimer -= delta;
+    if (scenerySpawnTimer <= 0) {
+      spawnSceneryObject();
+      scenerySpawnTimer = scenerySpawnInterval / 60.0; // Reset timer (assumes interval is in frames)
+    }
+  }
+
+  // Move obstacles and check for collisions
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const obstacle = obstacles[i];
+    obstacle.position.z += currentObstacleSpeed * delta * 60; // Adjust speed factor as needed
+
+    // Basic 3D Collision Detection
+    if (playerGroup && obstacle.children.length > 0 && !gameOver) {
+        // Ensure matrices are up to date for accurate bounding boxes
+        playerGroup.updateMatrixWorld(true);
+        obstacle.updateMatrixWorld(true);
+
+        const playerBox = new THREE.Box3().setFromObject(playerGroup);
+        const obstacleBox = new THREE.Box3().setFromObject(obstacle);
+        
+        if (playerBox.intersectsBox(obstacleBox)) {
+            triggerGameOver();
+            break; 
+        }
+    }
+
+    // Despawn off-screen (passed player and camera)
+    if (obstacle.position.z > camera.position.z + 30) { // Despawn if well behind camera (camera.position.z is 15)
+      scene.remove(obstacle);
+      obstacles.splice(i, 1);
+    }
+  }
+
+  // Move scenery
+  for (let i = sceneryObjects.length - 1; i >= 0; i--) {
+    const scenery = sceneryObjects[i];
+    // Scenery moves at a speed relative to obstacles/road
+    scenery.position.z += currentObstacleSpeed * scenerySpeedFactor * delta * 60; 
+
+    // Despawn off-screen scenery
+    if (scenery.position.z > camera.position.z + 60) { // Despawn further back
+        scene.remove(scenery);
+        // It's good practice to also dispose of geometry and material if they are unique to this object
+        // scenery.traverse(child => {
+        //   if (child.isMesh) {
+        //     child.geometry.dispose();
+        //     if (child.material.isMaterial) {
+        //       child.material.dispose();
+        //     } else if (Array.isArray(child.material)) {
+        //       child.material.forEach(m => m.dispose());
+        //     }
+        //   }
+        // });
+        sceneryObjects.splice(i, 1);
+    }
+  }
+
   if (!gameOver) {
     score += delta * 10; 
     updateScoreDisplay();
-    // updateDifficulty(); 
+    updateDifficulty(); // MODIFIED - Call updateDifficulty
   }
 
   // Fixed camera for debugging model visibility
@@ -757,7 +827,7 @@ function animate() {
   // Simplified Debug Logs for animate loop
   if (isPlayerModelLoaded && playerGroup && playerGroup.position) {
     const pgPos = playerGroup.position;
-    console.log(`DEBUG Anim: PlayerGroup XYZ: ${pgPos.x.toFixed(2)}, ${pgPos.y.toFixed(2)}, ${pgPos.z.toFixed(2)}`);
+    // console.log(`DEBUG Anim: PlayerGroup XYZ: ${pgPos.x.toFixed(2)}, ${pgPos.y.toFixed(2)}, ${pgPos.z.toFixed(2)}`); //MODIFIED
   } else if (!isPlayerModelLoaded) {
     // console.log('DEBUG Anim: Waiting for player model...'); // Optional: can be spammy
   }
@@ -948,6 +1018,9 @@ function restartGame() {
     currentObstacleSpeed = initialObstacleSpeed; // Reset speed
     currentObstacleSpawnInterval = initialObstacleSpawnInterval; // Reset spawn interval
 
+    obstacleSpawnTimer = currentObstacleSpawnInterval / 60.0; // MODIFIED - Reset timer
+    scenerySpawnTimer = scenerySpawnInterval / 60.0;   // MODIFIED - Reset timer
+
     if (playerGroup) {
         playerGroup.position.set(0, 0, 3);
         leftPressed = false; 
@@ -957,7 +1030,6 @@ function restartGame() {
         scene.remove(obstacles[i]);
     }
     obstacles = [];
-    obstacleSpawnTimer = 0;
 
     // Clear existing scenery objects
     for (let i = sceneryObjects.length - 1; i >= 0; i--) {
@@ -965,7 +1037,6 @@ function restartGame() {
         // Consider disposing geometry/material if not shared and created uniquely
     }
     sceneryObjects = [];
-    scenerySpawnTimer = 0;
 
     if (gameOverScreen) gameOverScreen.style.display = 'none';
 }
@@ -981,3 +1052,21 @@ function restartGame() {
 //   //   bestScoreElement.textContent = localStorage.getItem('rickshaw_best_score') || 0;
 //   // }
 // }
+
+// NEW Placeholder function
+function updateDifficulty() {
+    // This function can be expanded to increase game difficulty over time
+    // For example, by increasing currentObstacleSpeed or decreasing currentObstacleSpawnInterval
+    // based on score or time.
+    // console.log("DEBUG: updateDifficulty called, current speed:", currentObstacleSpeed, "spawn interval:", currentObstacleSpawnInterval);
+
+    if (!gameOver) { // Only update if game is running
+        // Example: Increase speed slightly based on score
+        // currentObstacleSpeed = initialObstacleSpeed + (score / 5000); // Increase speed every 500 score points
+        // currentObstacleSpeed = Math.min(currentObstacleSpeed, maxObstacleSpeed); // Cap speed
+
+        // Example: Decrease spawn interval based on score
+        // currentObstacleSpawnInterval = initialObstacleSpawnInterval - (score / 100); // Decrease interval every 100 score
+        // currentObstacleSpawnInterval = Math.max(currentObstacleSpawnInterval, minObstacleSpawnInterval);
+    }
+}
