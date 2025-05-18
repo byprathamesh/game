@@ -588,33 +588,31 @@ function initThreeJS() {
   playerGroup.name = "PlayerRickshaw";
   scene.add(playerGroup);
 
-  const rickshawBodyMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 }); // Brighter Yellow (Gold-ish)
-  const rickshawCabinMaterial = new THREE.MeshStandardMaterial({ color: 0x0A0A0A }); // Very Dark Black
-  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x1A1A1A }); // Darker Grey for wheels
-  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x777777 }); // Grey for metal parts
-  const seatMaterial = new THREE.MeshStandardMaterial({ color: 0x4A3B31 }); // Brownish for seat
-  const headlightMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0, emissive: 0x999900 }); // Light yellow, slightly emissive
+  /* --- Start of commented out geometric rickshaw ---
+  const rickshawBodyMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 }); 
+  const rickshawCabinMaterial = new THREE.MeshStandardMaterial({ color: 0x0A0A0A }); 
+  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x1A1A1A }); 
+  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x777777 }); 
+  const seatMaterial = new THREE.MeshStandardMaterial({ color: 0x4A3B31 }); 
+  const headlightMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0, emissive: 0x999900 }); 
 
-  // Rickshaw Body (Yellow)
   const bodyWidth = 1.2 * vehicleScaleFactor, 
         bodyHeight = 0.4 * vehicleScaleFactor, 
         bodyLength = 2.0 * vehicleScaleFactor;
-  playerRickshawScaledBodyWidth = bodyWidth; // Assign to global variable
+  playerRickshawScaledBodyWidth = bodyWidth; 
 
   const bodyGeometry = new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyLength);
   const bodyMesh = new THREE.Mesh(bodyGeometry, rickshawBodyMaterial);
   bodyMesh.name = "RickshawBody";
   
-  // Wheels (Darker Grey - Cylinders) - Define radius first for body positioning
   const playerWheelRadius = 0.35 * vehicleScaleFactor; 
   const playerWheelThickness = 0.15 * vehicleScaleFactor; 
   const playerWheelYPosition = playerWheelRadius; 
   const playerWheelSegments = 16; 
 
-  bodyMesh.position.y = playerWheelYPosition + (bodyHeight / 2) - (0.1 * vehicleScaleFactor); // Adjusted for better visual centering over wheels
+  bodyMesh.position.y = playerWheelYPosition + (bodyHeight / 2) - (0.1 * vehicleScaleFactor); 
   playerGroup.add(bodyMesh);
 
-  // Rickshaw Cabin/Roof (Black)
   const cabinWidth = bodyWidth * 0.95, 
         cabinHeight = 0.6 * vehicleScaleFactor, 
         cabinLength = bodyLength * 0.55;
@@ -624,17 +622,15 @@ function initThreeJS() {
   cabinMesh.position.z = -bodyLength * 0.2;
   playerGroup.add(cabinMesh);
 
-  // Passenger Bench (Brownish)
   const seatWidth = cabinWidth * 0.9, 
         seatHeight = 0.1 * vehicleScaleFactor, 
         seatDepth = bodyLength * 0.4;
   const seatGeometry = new THREE.BoxGeometry(seatWidth, seatHeight, seatDepth);
   const seatMesh = new THREE.Mesh(seatGeometry, seatMaterial);
-  seatMesh.position.y = bodyMesh.position.y - bodyHeight/2 + seatHeight/2 + (0.1 * vehicleScaleFactor); // Raised slightly more
+  seatMesh.position.y = bodyMesh.position.y - bodyHeight/2 + seatHeight/2 + (0.1 * vehicleScaleFactor); 
   seatMesh.position.z = cabinMesh.position.z + cabinLength/2 - seatDepth/2 - (0.1 * vehicleScaleFactor);
   playerGroup.add(seatMesh);
 
-  // Front part / Windshield suggestion (Black)
   const frontCabinWidth = cabinWidth * 0.8, 
         frontCabinHeight = cabinHeight * 0.7, 
         frontCabinDepth = 0.3 * vehicleScaleFactor;
@@ -644,7 +640,6 @@ function initThreeJS() {
   frontCabinMesh.position.z = bodyMesh.position.z + bodyLength/2 - frontCabinDepth/2 - (0.2 * vehicleScaleFactor);
   playerGroup.add(frontCabinMesh);
   
-  // Handlebar/Steering Column Suggestion (Grey Metal)
   const handlebarHeight = 0.5 * vehicleScaleFactor, 
         handlebarRadius = 0.05 * vehicleScaleFactor;
   const handlebarGeometry = new THREE.CylinderGeometry(handlebarRadius, handlebarRadius, handlebarHeight, 8);
@@ -654,7 +649,6 @@ function initThreeJS() {
   handlebarMesh.rotation.x = Math.PI / 4;
   playerGroup.add(handlebarMesh);
 
-  // Headlight (Light Yellow)
   const playerHeadlightRadius = 0.15 * vehicleScaleFactor, 
         playerHeadlightDepth = 0.1 * vehicleScaleFactor;
   const headlightGeometry = new THREE.CylinderGeometry(playerHeadlightRadius, playerHeadlightRadius * 0.8, playerHeadlightDepth, 16);
@@ -664,26 +658,67 @@ function initThreeJS() {
   headlightMesh.rotation.x = Math.PI / 2; 
   playerGroup.add(headlightMesh);
 
-  // Back Left Wheel
   const blWheelGeometry = new THREE.CylinderGeometry(playerWheelRadius, playerWheelRadius, playerWheelThickness, playerWheelSegments);
   const blWheelMesh = new THREE.Mesh(blWheelGeometry, wheelMaterial);
   blWheelMesh.rotation.z = Math.PI / 2; 
   blWheelMesh.position.set(-bodyWidth/2 - playerWheelThickness/2 + (0.05 * vehicleScaleFactor), playerWheelYPosition, -bodyLength/2 + playerWheelRadius + (0.2 * vehicleScaleFactor));
   playerGroup.add(blWheelMesh);
 
-  // Back Right Wheel
   const brWheelGeometry = new THREE.CylinderGeometry(playerWheelRadius, playerWheelRadius, playerWheelThickness, playerWheelSegments);
   const brWheelMesh = new THREE.Mesh(brWheelGeometry, wheelMaterial);
   brWheelMesh.rotation.z = Math.PI / 2; 
   brWheelMesh.position.set(bodyWidth/2 + playerWheelThickness/2 - (0.05 * vehicleScaleFactor), playerWheelYPosition, -bodyLength/2 + playerWheelRadius + (0.2 * vehicleScaleFactor));
   playerGroup.add(brWheelMesh);
 
-  // Front Wheel (centered)
   const fWheelGeometry = new THREE.CylinderGeometry(playerWheelRadius, playerWheelRadius, playerWheelThickness, playerWheelSegments);
   const fWheelMesh = new THREE.Mesh(fWheelGeometry, wheelMaterial);
   fWheelMesh.rotation.z = Math.PI / 2; 
   fWheelMesh.position.set(0, playerWheelYPosition, bodyLength/2 - playerWheelRadius + (0.1 * vehicleScaleFactor));
   playerGroup.add(fWheelMesh);
+  --- End of commented out geometric rickshaw --- */
+
+  // Load Rickshaw GLTF Model
+  const loader = new THREE.GLTFLoader();
+  loader.load(
+    'models/rickshaw/scene.gltf',
+    function (gltf) {
+      const model = gltf.scene;
+      // Scale and position the model appropriately
+      const desiredHeight = 1.5 * vehicleScaleFactor; // Target height for the rickshaw model
+      const boundingBox = new THREE.Box3().setFromObject(model);
+      const currentHeight = boundingBox.max.y - boundingBox.min.y;
+      let scale = 1.0;
+      if (currentHeight > 0) { // Avoid division by zero if model has no height
+        scale = desiredHeight / currentHeight;
+      }
+      model.scale.set(scale, scale, scale);
+
+      // Recalculate bounding box after scaling for accurate positioning
+      boundingBox.setFromObject(model);
+      model.position.y = -boundingBox.min.y + (0.1 * vehicleScaleFactor); // Attempt to place bottom at y=0 and add small ground clearance
+      
+      // Clear previous player group children if any (like geometric parts)
+      while(playerGroup.children.length > 0){ 
+        playerGroup.remove(playerGroup.children[0]); 
+      }
+      playerGroup.add(model); // Add the loaded GLTF model
+
+      // Update playerRickshawScaledBodyWidth based on the loaded model
+      const modelBox = new THREE.Box3().setFromObject(playerGroup); 
+      playerRickshawScaledBodyWidth = modelBox.max.x - modelBox.min.x;
+      if (playerRickshawScaledBodyWidth === 0) { // Fallback if model width is zero (e.g. not loaded yet or invisible)
+          playerRickshawScaledBodyWidth = 1.2 * vehicleScaleFactor; // Use old geometric width as fallback
+          console.warn('Loaded model width is zero, using fallback width for collision.');
+      }
+
+      console.log('Rickshaw model loaded. Calculated width:', playerRickshawScaledBodyWidth);
+    },
+    undefined, // onProgress callback (optional)
+    function (error) {
+      console.error('An error happened loading the rickshaw model:', error);
+      // Consider re-enabling geometric player as a fallback here if needed
+    }
+  );
 
   playerGroup.position.set(0, 0, 3); 
   
