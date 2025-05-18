@@ -727,7 +727,7 @@ function initThreeJS() {
       const scaledBox = new THREE.Box3().setFromObject(model);
       const scaledSize = new THREE.Vector3();
       scaledBox.getSize(scaledSize);
-      console.log("Scaled model size:", scaledSize);
+      console.log("Scaled model size (used for positioning and width):", scaledSize.x, scaledSize.y, scaledSize.z);
 
       // Set playerRickshawScaledBodyWidth using the correctly calculated scaledSize.x
       if (scaledSize.x > 0.0001 && !isNaN(scaledSize.x)) {
@@ -762,6 +762,24 @@ function initThreeJS() {
       if (model.children.length > 0) {
         console.log("First child of model - Name:", model.children[0].name, "Type:", model.children[0].type);
       }
+      // DEBUG: Log final model and playerGroup scale and positions
+      console.log("DEBUG: Loaded Model - Local Scale:", model.scale.x, model.scale.y, model.scale.z);
+      console.log("DEBUG: Loaded Model - Local Position (in playerGroup):", model.position.x.toFixed(2), model.position.y.toFixed(2), model.position.z.toFixed(2));
+      console.log("DEBUG: PlayerGroup - World Position:", playerGroup.position.x.toFixed(2), playerGroup.position.y.toFixed(2), playerGroup.position.z.toFixed(2));
+      const worldPos = new THREE.Vector3();
+      model.getWorldPosition(worldPos);
+      console.log("DEBUG: Loaded Model - World Position:", worldPos.x.toFixed(2), worldPos.y.toFixed(2), worldPos.z.toFixed(2));
+
+      // Traverse and log details of the model's children
+      console.log("DEBUG: Traversing loaded model children:");
+      model.traverse(function(child) {
+        let childInfo = `  - Name: ${child.name || 'N/A'}, Type: ${child.type}, Visible: ${child.visible}`;
+        if (child.isMesh) {
+          childInfo += `, Material: ${child.material ? child.material.type : 'N/A'}`;
+          if (child.material && child.material.map) childInfo += `, Texture: ${child.material.map.name || 'Exists'}`;
+        }
+        console.log(childInfo);
+      });
 
     },
     undefined, // onProgress callback (optional)
