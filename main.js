@@ -738,21 +738,25 @@ function initThreeJS() {
         playerGroup.remove(playerGroup.children[0]); 
       }
       playerGroup.add(model); 
-      console.log("Model children:", model.children); // Log children of the model
+      console.log("Model children:", model.children);
+      if (model.children.length > 0) {
+        console.log("First child of model - Name:", model.children[0].name, "Type:", model.children[0].type);
+      }
 
       // --- Width Calculation for Collision ---
-      // Calculate bounding box for the model itself after all transformations
-      const finalModelBox = new THREE.Box3().setFromObject(model); // Use model directly
-      const finalModelSize = new THREE.Vector3();
-      finalModelBox.getSize(finalModelSize);
+      // The model is now scaled, centered, and added to playerGroup.
+      // Calculate the bounding box from the playerGroup itself.
+      const finalPlayerGroupBox = new THREE.Box3().setFromObject(playerGroup);
+      const finalPlayerGroupSize = new THREE.Vector3();
+      finalPlayerGroupBox.getSize(finalPlayerGroupSize);
       
-      console.log("Final Model BoundingBox Size (for collision width):", finalModelSize);
+      console.log("Final BoundingBox Size (from playerGroup) for collision width:", finalPlayerGroupSize);
 
-      if (finalModelSize.x > 0.0001 && !isNaN(finalModelSize.x)) {
-          playerRickshawScaledBodyWidth = finalModelSize.x;
+      if (finalPlayerGroupSize.x > 0.0001 && !isNaN(finalPlayerGroupSize.x)) {
+          playerRickshawScaledBodyWidth = finalPlayerGroupSize.x;
       } else {
           playerRickshawScaledBodyWidth = 1.8; // Fallback width
-          console.warn(`Calculated collision width from model (${finalModelSize.x}) is invalid or zero. Using fallback width: ${playerRickshawScaledBodyWidth}`);
+          console.warn(`Calculated collision width from playerGroup (size: ${finalPlayerGroupSize.x}) is invalid or zero. Using fallback width: ${playerRickshawScaledBodyWidth}`);
       }
       console.log('Rickshaw model processed. Final collision width:', playerRickshawScaledBodyWidth);
 
