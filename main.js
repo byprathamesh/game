@@ -695,24 +695,39 @@ function initThreeJS() {
 
       // Recalculate bounding box after scaling for accurate positioning
       boundingBox.setFromObject(model);
-      model.position.y = -boundingBox.min.y + (0.1 * vehicleScaleFactor); // Attempt to place bottom at y=0 and add small ground clearance
       
-      // Clear previous player group children if any (like geometric parts)
+      // Center the model geometry first
+      const center = new THREE.Vector3();
+      boundingBox.getCenter(center);
+      model.position.sub(center); // Moves the model so its geometric center is at the playerGroup origin
+      
+      // Now, position the group so the model's new bottom (after centering) is at ground level + clearance
+      // Re-calculate bounding box as model position within playerGroup changed
+      const tempPlayerGroup = new THREE.Group();
+      tempPlayerGroup.add(model.clone()); // Use a clone to avoid modifying the playerGroup directly yet for this calculation
+      const centeredBox = new THREE.Box3().setFromObject(tempPlayerGroup);
+      model.position.y = -centeredBox.min.y + (0.1 * vehicleScaleFactor); // Ground clearance
+
       while(playerGroup.children.length > 0){ 
         playerGroup.remove(playerGroup.children[0]); 
       }
-      playerGroup.add(model); // Add the loaded GLTF model
+      playerGroup.add(model); // Add the loaded GLTF model with adjusted position
 
       // Update playerRickshawScaledBodyWidth based on the loaded model
-      const modelBox = new THREE.Box3().setFromObject(playerGroup); 
-      playerRickshawScaledBodyWidth = modelBox.max.x - modelBox.min.x;
-      // Broader check for invalid width, including NaN or if the model is not yet fully processed
-      if (!playerRickshawScaledBodyWidth || playerRickshawScaledBodyWidth === 0 || isNaN(playerRickshawScaledBodyWidth)) { 
-          playerRickshawScaledBodyWidth = 1.8; // Default width (approx old geometric 1.2 * 1.5 scale)
-          console.warn(`Loaded model width is invalid (${playerRickshawScaledBodyWidth}), using fallback width: ${playerRickshawScaledBodyWidth}`);
-      }
+      // Use a slight delay to ensure bounding box is updated after model is fully processed and added
+      setTimeout(() => {
+        const modelBox = new THREE.Box3().setFromObject(playerGroup); 
+        let calculatedWidth = modelBox.max.x - modelBox.min.x;
+        
+        if (!calculatedWidth || calculatedWidth === 0 || isNaN(calculatedWidth)) { 
+            playerRickshawScaledBodyWidth = 1.8; // Default width
+            console.warn(`Loaded model width is invalid (${calculatedWidth}), using fallback width: ${playerRickshawScaledBodyWidth}`);
+        } else {
+            playerRickshawScaledBodyWidth = calculatedWidth;
+        }
+        console.log('Rickshaw model processed. Final calculated width:', playerRickshawScaledBodyWidth);
+      }, 100); // 100ms delay, can be adjusted
 
-      console.log('Rickshaw model loaded. Calculated width:', playerRickshawScaledBodyWidth);
     },
     undefined, // onProgress callback (optional)
     function (error) {
