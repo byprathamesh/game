@@ -529,7 +529,7 @@ function initThreeJS() {
   // Camera
   camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
   // Initial camera position will be adjusted by follow logic, but set a reasonable start
-  camera.position.set(0, 7, 12); // Start a bit further back and higher
+  camera.position.set(0, 10, 15); // Start higher and further back
   // camera.lookAt is now dynamic in animate()
 
   // Renderer
@@ -818,6 +818,7 @@ function animate() {
     // Obstacle Movement, Despawning & Collision Detection
     const playerBox = new THREE.Box3();
     if (playerGroup) {
+        playerGroup.updateMatrixWorld(true); // Ensure matrix is up-to-date
         playerBox.setFromObject(playerGroup);
     }
     for (let i = obstacles.length - 1; i >= 0; i--) {
@@ -828,7 +829,8 @@ function animate() {
         obstacles.splice(i, 1);
         continue;
       }
-      if (playerGroup) {
+      if (playerGroup) { // Check playerGroup again, in case it becomes null
+        obstacle.updateMatrixWorld(true); // Ensure obstacle matrix is up-to-date
         const obstacleBox = new THREE.Box3().setFromObject(obstacle);
         if (playerBox.intersectsBox(obstacleBox)) {
           triggerGameOver();
@@ -842,7 +844,7 @@ function animate() {
   if (playerGroup) {
     const targetCameraX = playerGroup.position.x;
     camera.position.x += (targetCameraX - camera.position.x) * cameraFollowSpeed;
-    const lookAtPosition = new THREE.Vector3(playerGroup.position.x, playerGroup.position.y + 1, playerGroup.position.z - 2);
+    const lookAtPosition = new THREE.Vector3(playerGroup.position.x, playerGroup.position.y + 1.5, playerGroup.position.z); // Look at player, slightly higher Y for better view
     camera.lookAt(lookAtPosition);
   }
 
