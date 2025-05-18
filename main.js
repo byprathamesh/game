@@ -706,9 +706,10 @@ function initThreeJS() {
       // Update playerRickshawScaledBodyWidth based on the loaded model
       const modelBox = new THREE.Box3().setFromObject(playerGroup); 
       playerRickshawScaledBodyWidth = modelBox.max.x - modelBox.min.x;
-      if (playerRickshawScaledBodyWidth === 0) { // Fallback if model width is zero (e.g. not loaded yet or invisible)
-          playerRickshawScaledBodyWidth = 1.2 * vehicleScaleFactor; // Use old geometric width as fallback
-          console.warn('Loaded model width is zero, using fallback width for collision.');
+      // Broader check for invalid width, including NaN or if the model is not yet fully processed
+      if (!playerRickshawScaledBodyWidth || playerRickshawScaledBodyWidth === 0 || isNaN(playerRickshawScaledBodyWidth)) { 
+          playerRickshawScaledBodyWidth = 1.8; // Default width (approx old geometric 1.2 * 1.5 scale)
+          console.warn(`Loaded model width is invalid (${playerRickshawScaledBodyWidth}), using fallback width: ${playerRickshawScaledBodyWidth}`);
       }
 
       console.log('Rickshaw model loaded. Calculated width:', playerRickshawScaledBodyWidth);
