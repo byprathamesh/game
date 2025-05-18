@@ -6,7 +6,6 @@
 
 let scene, camera, renderer;
 let playerGroup, groundMesh;
-// let testCube; // Declare testCube globally for logging
 // Keep input state global for now
 let leftPressed = false, rightPressed = false;
 let textureLoader; // Declare textureLoader globally or pass it around
@@ -830,11 +829,6 @@ function animate() {
     // console.log(`DEBUG Anim: PlayerGroup XYZ: ${pgPos.x.toFixed(2)}, ${pgPos.y.toFixed(2)}, ${pgPos.z.toFixed(2)}`); //MODIFIED
   } else if (!isPlayerModelLoaded) {
     // console.log('DEBUG Anim: Waiting for player model...'); // Optional: can be spammy
-  }
-
-  if (testCube && testCube.position){ // Log test cube if it exists
-    const tcPos = testCube.position;
-    // console.log(`DEBUG Anim: TestCube XYZ: ${tcPos.x.toFixed(2)}, ${tcPos.y.toFixed(2)}, ${tcPos.z.toFixed(2)}`); // Optional: can be spammy
   }
   
   renderer.render(scene, camera);
