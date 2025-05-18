@@ -6,25 +6,42 @@
 
 let scene, camera, renderer;
 let playerGroup, groundMesh;
+let backgroundAudio; // Global variable for background audio
 // Keep input state global for now
 let leftPressed = false, rightPressed = false;
 let textureLoader; // Declare textureLoader globally or pass it around
-const roadScrollSpeed = 0.02; // Adjusted scroll speed
+const roadScrollSpeed = 0.03; // MODIFIED - Increased from 0.02 --- This will become initialRoadScrollSpeed
+let currentRoadScrollSpeed = roadScrollSpeed; // New variable for dynamic scroll speed
+const maxRoadScrollSpeed = 0.08; // Maximum scroll speed for the road
 
 let playerRickshawScaledBodyWidth; // Global variable for player's scaled width
 
 let obstacles = [];
-const initialObstacleSpeed = 0.3; // Slightly reduced initial speed
+const initialObstacleSpeed = 0.45; // REVERTED - Was 0.70, before that 0.45
 let currentObstacleSpeed = initialObstacleSpeed;
-const maxObstacleSpeed = 1.0; // Cap for obstacle speed
+const maxObstacleSpeed = 1.5; // MODIFIED - Increased from 1.2
 
-const initialObstacleSpawnInterval = 120; // MODIFIED - Moved up
+const initialObstacleSpawnInterval = 75; // MODIFIED - Was 30, to allow for ramp-up
 let obstacleSpawnTimer = initialObstacleSpawnInterval / 60.0; // Uses the above const
 let currentObstacleSpawnInterval = initialObstacleSpawnInterval;
-const minObstacleSpawnInterval = 45; // Minimum interval (approx 0.75 seconds)
+const minObstacleSpawnInterval = 30; // Remains 30 (0.5s at 60FPS)
+
+let globalSpawnCooldownTimer = 0; // New timer for global cooldown
+const GLOBAL_SPAWN_COOLDOWN = 0.5; // MODIFIED - Decreased from 0.6s to 0.5s
 
 const laneWidth = 10; // Ground width is 30, so 3 lanes of 10
 const lanePositions = [-laneWidth, 0, laneWidth]; // X-coordinates for center of lanes
+
+// Variables for targeted truck spawning
+let playerCurrentLaneIndex = 1; // Initial lane (0, 1, or 2) -> Corresponds to lanePositions index
+let previousPlayerLaneIndex = 1; // To detect lane changes
+let timeInCurrentLane = 0;      // Seconds player has been in the current lane
+const TIME_TO_TRIGGER_TARGETED_SPAWN = 5.0; // MODIFIED - Seconds - Increased from 4.0s
+let targetedSpawnCooldownTimer = 0; // Cooldown for targeted spawns
+const TARGETED_SPAWN_COOLDOWN_DURATION = 6.0; // MODIFIED - Seconds - Increased from 5.0s
+
+// Performance: Max active obstacles
+const MAX_ACTIVE_OBSTACLES = 4; // MODIFIED - Increased from 3
 
 let gameOver = false; // Add game over state
 let score = 0;
@@ -33,6 +50,17 @@ const cameraFollowSpeed = 0.05; // Smoothing factor for camera movement
 
 // New texture variables
 let carTexture, truckTexture;
+
+// Array to hold loaded truck textures
+let loadedTruckTextures = [];
+const truckTextureFiles = [
+    'textures/vehicle1_baseColor.png',
+    'textures/vehicle2_baseColor.png',
+    'textures/vehicle3_baseColor.png',
+    'textures/vehicle4_baseColor.png',
+    'textures/vehicle5_baseColor.png',
+    'textures/vehicle6_baseColor.png'
+];
 
 // Obstacle (Truck) Colors
 const truckBodyColor = 0x0033cc; // Dark Blue
@@ -60,22 +88,23 @@ const truckWheelGeometry = new THREE.CylinderGeometry(truckWheelRadius, truckWhe
 const truckHeadlightMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0, emissive: 0x888800 });
 const truckTaillightMaterial = new THREE.MeshStandardMaterial({ color: 0xFF0000, emissive: 0x880000 });
 
-let sceneryObjects = [];
-const scenerySpawnInterval = 90; // MODIFIED - Moved up
-let scenerySpawnTimer = scenerySpawnInterval / 60.0; // Uses the above const
-const scenerySpeedFactor = 0.95; // Scenery moves slightly slower than road for parallax
+// let sceneryObjects = []; // REMOVED
+// const scenerySpawnInterval = 90; // REMOVED
+// let scenerySpawnTimer = scenerySpawnInterval / 60.0; // REMOVED
+// const scenerySpeedFactor = 0.95; // REMOVED
 
-// Scenery Colors & Types
-const poleColor = 0x888888; // Grey
-const bushColor = 0x228B22; // Forest Green
-const buildingColor = 0x778899; // Light Slate Gray
-const treeTrunkColor = 0x8B4513; // SaddleBrown
-const poleLightMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0, emissive: 0x777700 });
+// Scenery Colors & Types // REMOVED
+// const poleColor = 0x888888; // REMOVED
+// const bushColor = 0x228B22; // REMOVED
+// const buildingColor = 0x778899; // REMOVED
+// const treeTrunkColor = 0x8B4513; // REMOVED
+// const poleLightMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0, emissive: 0x777700 }); // REMOVED
 
 let clock = new THREE.Clock(); // Add clock for delta time in animation
 let isPlayerModelLoaded = false; // Flag to indicate if the GLTF model has loaded
-const desiredRickshawHeight = 3.5; // Define this globally or pass as param
+const desiredRickshawHeight = 4.5; // MODIFIED - Increased from 4.0 for a larger rickshaw
 const roadWidth = 30; // Assuming this is defined somewhere, needed for lane boundaries
+const TARGET_ASPECT_RATIO = 9 / 16; // Define the desired fixed aspect ratio
 
 window.onload = function() {
   // Initialize Three.js Environment First
@@ -83,6 +112,9 @@ window.onload = function() {
 
   // Initialize TextureLoader here as THREE is now defined
   textureLoader = new THREE.TextureLoader();
+
+  // Load truck textures
+  loadTruckTextures();
 
   // Load the road texture after initThreeJS so groundMesh exists
   loadRoadTexture();
@@ -474,37 +506,179 @@ window.onload = function() {
   //   restartGame(); // Start the game
   // }
   // init();
-};
 
-function loadRoadTexture() {
-    if (!textureLoader || !groundMesh) {
-        console.warn("TextureLoader or groundMesh not initialized for loadRoadTexture");
+  // Handle window resize
+  function handleResize() {
+    const gameContainer = document.getElementById('gameContainer');
+    if (!gameContainer) {
+        console.warn("DEBUG: gameContainer not found during resize.");
+        // Fallback to window if gameContainer is somehow not available
+        const fallbackWidth = window.innerWidth;
+        const fallbackHeight = window.innerHeight;
+        renderer.setSize(fallbackWidth, fallbackHeight);
+        camera.aspect = fallbackWidth / fallbackHeight;
+        camera.updateProjectionMatrix();
         return;
     }
+
+    const containerWidth = gameContainer.clientWidth;
+    const containerHeight = gameContainer.clientHeight;
+    const containerAspectRatio = containerWidth / containerHeight;
+
+    let newCanvasWidth;
+    let newCanvasHeight;
+
+    if (containerAspectRatio > TARGET_ASPECT_RATIO) {
+        // Container is wider than target (pillarbox)
+        newCanvasHeight = containerHeight;
+        newCanvasWidth = newCanvasHeight * TARGET_ASPECT_RATIO;
+    } else {
+        // Container is taller than or equal aspect to target (letterbox or perfect fit)
+        newCanvasWidth = containerWidth;
+        newCanvasHeight = newCanvasWidth / TARGET_ASPECT_RATIO;
+    }
+
+    renderer.setSize(newCanvasWidth, newCanvasHeight);
+    camera.aspect = TARGET_ASPECT_RATIO; // Use the fixed target aspect ratio for the camera
+    camera.updateProjectionMatrix();
+    console.log(`DEBUG: Resized. Container: ${containerWidth}x${containerHeight}, Canvas: ${newCanvasWidth.toFixed(0)}x${newCanvasHeight.toFixed(0)}, Target Aspect: ${TARGET_ASPECT_RATIO.toFixed(2)}`);
+  }
+
+  window.addEventListener('resize', handleResize, false);
+  handleResize(); // Call once initially to set correct size
+};
+
+function loadTruckTextures() {
+    if (!textureLoader) {
+        console.warn("TextureLoader not initialized for loadTruckTextures. Textures will not be loaded.");
+        return;
+    }
+    if (!renderer) {
+        console.warn("Renderer not initialized for loadTruckTextures. Cannot set anisotropy.");
+        // return; // Or proceed without anisotropy
+    }
+    console.log("DEBUG: Loading truck textures...");
+    truckTextureFiles.forEach(filePath => {
     textureLoader.load(
-        'textures/stone.png', // Path to your road texture
+            filePath,
         function(texture) { // onLoad callback
+                texture.name = filePath.split('/').pop(); // Store filename for debugging
+                texture.encoding = THREE.sRGBEncoding; // Color space
+                texture.generateMipmaps = true;       // Ensure mipmaps are generated
+                texture.minFilter = THREE.LinearMipmapLinearFilter; // Quality filtering
+                texture.magFilter = THREE.LinearFilter;
+                if (renderer) { // Set anisotropy if renderer is available
+                  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                }
+                texture.needsUpdate = true; // Important after changing properties
+                loadedTruckTextures.push(texture);
+                console.log(`DEBUG: Loaded truck texture: ${texture.name}`);
+                if (loadedTruckTextures.length === truckTextureFiles.length) {
+                    console.log("DEBUG: All truck textures loaded successfully.");
+                }
+            },
+            undefined, // onProgress callback (optional)
+            function(err) { // onError callback
+                console.error(`An error occurred loading truck texture ${filePath}:`, err);
+            }
+        );
+    });
+}
+
+function loadRoadTexture() {
+    if (!textureLoader || !groundMesh || !renderer) {
+        console.warn("TextureLoader, groundMesh, or renderer not initialized for loadRoadTexture");
+        return;
+    }
+
+    const texturePath = 'textures/';
+    const baseColorFile = 'ThreeLaneRoadWet01_4K_BaseColor.png';
+    const normalFile = 'ThreeLaneRoadWet01_4K_Normal.png';
+    const roughnessFile = 'ThreeLaneRoadWet01_4K_Roughness.png';
+    const aoFile = 'ThreeLaneRoadWet01_4K_AO.png';
+
+    const repeatU = 1;
+    const repeatV = 10; // MODIFIED - Increased from 2 to reduce stretching along road length
+    const rotationRadians = Math.PI / 2;
+    const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+
+    // Function to apply common settings
+    function setupTexture(texture, isColorMap = false) {
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(roadWidth / 10, 20); // Adjust repeat based on roadWidth and desired look
+        texture.repeat.set(repeatU, repeatV);
+        texture.rotation = rotationRadians;
+        texture.center.set(0.5, 0.5);
+        texture.generateMipmaps = true;
+        texture.minFilter = THREE.LinearMipmapLinearFilter; // High quality minification
+        texture.magFilter = THREE.LinearFilter;          // High quality magnification
+        texture.anisotropy = maxAnisotropy;
+        if (isColorMap) {
+            texture.encoding = THREE.sRGBEncoding;
+        } else {
+            texture.encoding = THREE.LinearEncoding; // Default for data maps
+        }
+        texture.needsUpdate = true; // Important for mipmaps & anisotropy
+    }
+
+    // Base Color Map
+    textureLoader.load(
+        texturePath + baseColorFile,
+        function(texture) {
+            setupTexture(texture, true);
             groundMesh.material.map = texture;
             groundMesh.material.needsUpdate = true;
-            console.log("Road texture loaded and applied.");
+            console.log("Road BaseColor texture loaded, rotated, and applied with quality settings.");
         },
-        undefined, // onProgress callback (optional)
-        function(err) { // onError callback
-            console.error('An error occurred loading the road texture:', err);
-        }
+        undefined,
+        function(err) { console.error('Error loading BaseColor texture:', err); }
     );
 
-    // Example for lane lines as a texture (if you want to replace the Line objects)
-    // textureLoader.load('textures/lane_lines.png', function(texture) {
-    //     texture.wrapS = THREE.RepeatWrapping;
-    //     texture.wrapT = THREE.RepeatWrapping;
-    //     texture.repeat.set(1, 10); // Adjust as needed
-    //     roadLinesMaterial = new THREE.MeshStandardMaterial({ map: texture, transparent: true, side:THREE.DoubleSide });
-    //     // You'd then create a plane for these lines and add it to the scene.
-    // });
+    // Normal Map
+    textureLoader.load(
+        texturePath + normalFile,
+        function(texture) {
+            setupTexture(texture);
+            groundMesh.material.normalMap = texture;
+            groundMesh.material.needsUpdate = true;
+            console.log("Road NormalMap texture loaded, rotated, and applied with quality settings.");
+        },
+        undefined,
+        function(err) { console.error('Error loading NormalMap texture:', err); }
+    );
+
+    // Roughness Map
+    textureLoader.load(
+        texturePath + roughnessFile,
+        function(texture) {
+            setupTexture(texture);
+            groundMesh.material.roughnessMap = texture;
+            groundMesh.material.needsUpdate = true;
+            console.log("Road RoughnessMap texture loaded, rotated, and applied with quality settings.");
+        },
+        undefined,
+        function(err) { console.error('Error loading RoughnessMap texture:', err); }
+    );
+
+    // Ambient Occlusion (AO) Map
+    textureLoader.load(
+        texturePath + aoFile,
+        function(texture) {
+            setupTexture(texture);
+            groundMesh.material.aoMap = texture;
+            groundMesh.material.aoMapIntensity = 1; 
+            groundMesh.material.needsUpdate = true;
+            console.log("Road AOMap texture loaded, rotated, and applied with quality settings.");
+        },
+        undefined,
+        function(err) { console.error('Error loading AOMap texture:', err); }
+    );
+
+    groundMesh.material.metalness = 0.1; 
+    groundMesh.material.roughness = 1.0; 
+    // groundMesh.material.needsUpdate = true; // Material will be updated by texture loads
+
+    console.log("Attempting to load, rotate, and apply all PBR road textures with quality enhancements.");
 }
 
 function loadVehicleTextures() {
@@ -522,18 +696,36 @@ function updatePlayerMaterial() {
 function initThreeJS() {
   console.log("DEBUG: initThreeJS called");
   scene = new THREE.Scene();
-  // scene.background = new THREE.Color(0x87CEEB); // Sky blue background // Keep this for now
+  scene.background = new THREE.Color(0x100028); // MODIFIED - Darker, slightly more vibrant blue/purple
+  scene.fog = new THREE.FogExp2(0x100028, 0.0075); // MODIFIED - Added exponential fog
+
+  // Starfield
+  const starGeometry = new THREE.BufferGeometry();
+  const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.1, sizeAttenuation: true });
+  const starVertices = [];
+  for (let i = 0; i < 1000; i++) { // 1000 stars
+    const x = THREE.MathUtils.randFloatSpread(200); // Spread them out
+    const y = THREE.MathUtils.randFloatSpread(200);
+    const z = THREE.MathUtils.randFloat(-50, -200); // Position them in the distance
+    starVertices.push(x, y, z);
+  }
+  starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+  const stars = new THREE.Points(starGeometry, starMaterial);
+  scene.add(stars);
+  console.log("DEBUG: Starfield created.");
 
   // More advanced lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Softer ambient light
-  scene.add(ambientLight);
+  // const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Softer ambient light
+  // scene.add(ambientLight); // Replaced by HemisphereLight
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x303050, 1.6); // MODIFIED - Sky White, Ground lighter, Intensity 1.6
+  scene.add(hemisphereLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 2.2); // MODIFIED - Intensity 2.2
   directionalLight.position.set(5, 10, 7.5);
   directionalLight.castShadow = true; // Enable shadows for this light
-  // Configure shadow properties (optional, but good for performance/quality)
-  directionalLight.shadow.mapSize.width = 1024; // default is 512
-  directionalLight.shadow.mapSize.height = 1024; // default is 512
+  directionalLight.shadow.mapSize.width = 512; // MODIFIED - Was 1024 (Performance)
+  directionalLight.shadow.mapSize.height = 512; // MODIFIED - Was 1024 (Performance)
   directionalLight.shadow.camera.near = 0.5;    // default
   directionalLight.shadow.camera.far = 50;     // default
   directionalLight.shadow.camera.left = -20;
@@ -544,19 +736,20 @@ function initThreeJS() {
 
 
   // Camera
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const gameContainer = document.getElementById('gameContainer');
+  camera = new THREE.PerspectiveCamera(75, gameContainer.clientWidth / gameContainer.clientHeight, 0.1, 1000);
   // camera.position.set(0, 5, 10); // Initial fixed camera for debugging
   // camera.lookAt(0, 0, 0);       // Look at scene origin for debugging
   console.log(`DEBUG: Initial Camera Position: ${camera.position.x} ${camera.position.y} ${camera.position.z}`);
   console.log(`DEBUG: Camera is looking at (0,0,0)`);
 
-
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  // Renderer - USE EXISTING CANVAS
+  const canvas = document.getElementById('gameCanvas');
+  renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  renderer.setSize(gameContainer.clientWidth, gameContainer.clientHeight); // Size based on container
   renderer.shadowMap.enabled = true; // Enable shadow mapping in the renderer
   renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Optional: for softer shadows
-  document.getElementById('gameContainer').appendChild(renderer.domElement);
-
+  // document.getElementById('gameContainer').appendChild(renderer.domElement); // REMOVED - Using existing canvas
 
   // Ground
   const groundGeometry = new THREE.PlaneGeometry(roadWidth, 400); // Ground width from variable, increased length
@@ -567,11 +760,12 @@ function initThreeJS() {
   });
   groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
   groundMesh.rotation.x = -Math.PI / 2;
-  groundMesh.position.y = -0.05; // Slightly below y=0 to avoid z-fighting with model at y=0
+  groundMesh.position.y = 0; // MODIFIED - Road surface is now at Y=0
   groundMesh.receiveShadow = true; // Ground should receive shadows
+  // Add uv2 attribute for AO map
+  groundMesh.geometry.setAttribute('uv2', new THREE.BufferAttribute(groundMesh.geometry.attributes.uv.array, 2));
   scene.add(groundMesh);
-  console.log("DEBUG: Ground mesh created and added to scene.");
-
+  console.log("DEBUG: Ground mesh created and added to scene with uv2 attribute.");
 
   // Player Group (acts as the pivot/center for the player model)
   playerGroup = new THREE.Group();
@@ -599,18 +793,55 @@ function initThreeJS() {
   animate();
   console.log("DEBUG: Initial animate call from initThreeJS");
 
+  // Initialize and play background audio
+  try {
+    backgroundAudio = new Audio('1c5484fd4960597.mp3');
+    backgroundAudio.loop = true;
+    console.log("DEBUG: Background audio initialized.");
+
+    const playPromise = backgroundAudio.play();
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            console.log("Background audio autoplay started successfully.");
+        }).catch(error => {
+            console.warn("Background audio autoplay failed. Setting up listener for first user interaction.", error);
+            const onFirstInteraction = () => {
+                backgroundAudio.play().then(() => {
+                    console.log("Background audio started successfully on user interaction.");
+                }).catch(e => console.warn("Background audio play on interaction failed:", e));
+                window.removeEventListener('mousedown', onFirstInteraction, true);
+                window.removeEventListener('keydown', onFirstInteraction, true);
+                window.removeEventListener('touchstart', onFirstInteraction, true);
+            };
+            window.addEventListener('mousedown', onFirstInteraction, true);
+            window.addEventListener('keydown', onFirstInteraction, true);
+            window.addEventListener('touchstart', onFirstInteraction, true);
+        });
+    }
+  } catch (e) {
+    console.error("Error initializing background audio:", e);
+  }
 
   // Handle window resize
   window.addEventListener('resize', () => {
+    const gameContainer = document.getElementById('gameContainer'); // Re-fetch container on resize
+    if (gameContainer) { // Check if container exists
+        camera.aspect = gameContainer.clientWidth / gameContainer.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(gameContainer.clientWidth, gameContainer.clientHeight);
+        console.log("DEBUG: Window resized, camera and renderer updated based on gameContainer.");
+    } else {
+        // Fallback or default behavior if gameContainer is not found
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    console.log("DEBUG: Window resized, camera and renderer updated.");
+        console.warn("DEBUG: Window resized, but gameContainer not found. Using window dimensions.");
+    }
   }, false);
 }
 
 function loadGLTFModel() {
-    const loader = new THREE.GLTFLoader();
+    const loader = new THREE.GLTFLoader(); // NO LoadingManager here
     loader.setPath('models/rickshaw/');
     loader.load('scene.gltf', function (gltf) {
         console.log('Raw GLTF data loaded:', gltf);
@@ -678,7 +909,15 @@ function loadGLTFModel() {
         
         playerGroup.position.set(0, 0, 3); 
         scene.add(playerGroup); 
-        
+        playerGroup.updateMatrixWorld(true); // Ensure matrix is up-to-date
+
+        // Initialize player's AABB here after model is added and group is positioned
+        playerGroup.userData.aabb = new THREE.Box3();
+        // Initial calculation (will be updated in animate)
+        // playerGroup.userData.aabb.setFromObject(playerGroup); 
+        // console.log("DEBUG LoadCB: Initial Player AABB computed:", playerGroup.userData.aabb.min, playerGroup.userData.aabb.max);
+
+
         // Ensure playerGroup's matrix is updated before logging its position
         playerGroup.updateMatrixWorld(true); 
         console.log('DEBUG LoadCB: playerGroup.position after model add & transform:', playerGroup.position.x.toFixed(2), playerGroup.position.y.toFixed(2), playerGroup.position.z.toFixed(2));
@@ -700,6 +939,27 @@ function loadGLTFModel() {
                 logMsg += `, Material: ${child.material ? child.material.type : 'N/A'}`;
                 if (child.material && child.material.map) {
                     logMsg += `, Texture: ${child.material.map.name || 'Exists'}`;
+                    // Apply texture settings to player model's texture(s)
+                    const texture = child.material.map;
+                    texture.encoding = THREE.sRGBEncoding;
+                    texture.generateMipmaps = true;
+                    texture.minFilter = THREE.LinearMipmapLinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
+                    if (renderer) { // Check if renderer is available
+                        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                    }
+                    texture.needsUpdate = true;
+                    child.material.needsUpdate = true; // Also flag material for update
+
+                    // Ensure material is not transparent unless intended by GLTF
+                    if (child.material.transparent && child.material.opacity < 1) {
+                        console.log(`DEBUG Player GLTF: Material ${child.material.name || 'Unnamed'} on mesh ${child.name} is transparent.`);
+                    } else {
+                        child.material.transparent = false; // Explicitly set if not already transparent by design
+                    }
+                    child.material.side = THREE.FrontSide; // Default, but enforce for solidity
+                    child.material.depthWrite = true; // Ensure it writes to depth buffer
+
                 } else {
                     logMsg += `, Texture: None`;
                 }
@@ -716,323 +976,451 @@ function loadGLTFModel() {
 }
 
 function animate() {
-  if (gameOver) return;
-
   requestAnimationFrame(animate);
-  const delta = clock.getDelta();
+    const deltaTime = clock.getDelta(); // Use deltaTime consistently
+
+    if (gameOver) return;
 
   // Update road texture offset for scrolling effect
-  if (groundMesh.material && groundMesh.material.map) {
+    if (groundMesh && groundMesh.material && groundMesh.material.map) {
     if (!groundMesh.material.map.offset) groundMesh.material.map.offset = new THREE.Vector2();
-    groundMesh.material.map.offset.y -= roadScrollSpeed * delta * 10;
+        // Ensure other maps scroll too if they exist and need to
+        groundMesh.material.map.offset.x = (groundMesh.material.map.offset.x + currentRoadScrollSpeed * deltaTime) % 1;
+        if (groundMesh.material.normalMap) {
+            if (!groundMesh.material.normalMap.offset) groundMesh.material.normalMap.offset = new THREE.Vector2();
+            groundMesh.material.normalMap.offset.x = (groundMesh.material.normalMap.offset.x + currentRoadScrollSpeed * deltaTime) % 1;
+        }
+        if (groundMesh.material.roughnessMap) {
+            if (!groundMesh.material.roughnessMap.offset) groundMesh.material.roughnessMap.offset = new THREE.Vector2();
+            groundMesh.material.roughnessMap.offset.x = (groundMesh.material.roughnessMap.offset.x + currentRoadScrollSpeed * deltaTime) % 1;
+        }
+        if (groundMesh.material.aoMap) {
+            if (!groundMesh.material.aoMap.offset) groundMesh.material.aoMap.offset = new THREE.Vector2();
+            groundMesh.material.aoMap.offset.x = (groundMesh.material.aoMap.offset.x + currentRoadScrollSpeed * deltaTime) % 1;
+        }
+    }
+
+    // Update global spawn cooldown timer
+    if (globalSpawnCooldownTimer > 0) {
+        globalSpawnCooldownTimer -= deltaTime;
+    }
+    
+    // Update targeted spawn cooldown timer
+    if (targetedSpawnCooldownTimer > 0) {
+        targetedSpawnCooldownTimer -= deltaTime;
   }
 
   // Player movement
-  const movementSpeed = 5; 
-  if (playerGroup && isPlayerModelLoaded) { 
+    if (isPlayerModelLoaded && playerRickshawScaledBodyWidth > 0) { 
+        const playerSpeed = 0.2; 
     if (leftPressed) {
-      playerGroup.position.x -= movementSpeed * delta;
+            playerGroup.position.x -= playerSpeed * deltaTime * 60; 
     }
     if (rightPressed) {
-      playerGroup.position.x += movementSpeed * delta;
+            playerGroup.position.x += playerSpeed * deltaTime * 60; 
     }
 
     const halfPlayerWidth = playerRickshawScaledBodyWidth / 2;
-    const laneBoundary = roadWidth / 2 - halfPlayerWidth - 0.1; 
-    playerGroup.position.x = Math.max(-laneBoundary, Math.min(laneBoundary, playerGroup.position.x));
-    
-    playerGroup.updateMatrixWorld(true); // Important for consistent position data
-  }
+        const roadHalfWidth = roadWidth / 2;
+        playerGroup.position.x = Math.max(-roadHalfWidth + halfPlayerWidth + 0.25, Math.min(roadHalfWidth - halfPlayerWidth - 0.25, playerGroup.position.x));
+    }
+    playerGroup.updateMatrixWorld(true); 
 
-  // Obstacle/Scenery/Collision (Still disabled for model visibility debugging)
-  // ...
-
-  // NEW Obstacle and Scenery Management
-  if (!gameOver) {
-    obstacleSpawnTimer -= delta;
-    if (obstacleSpawnTimer <= 0) {
-      spawnObstacle();
-      obstacleSpawnTimer = currentObstacleSpawnInterval / 60.0; // Reset timer (assumes interval is in frames)
+    // Update Player's AABB each frame
+    if (playerGroup.userData.aabb) {
+        playerGroup.userData.aabb.setFromObject(playerGroup);
+    } else {
+        // Fallback if aabb was not initialized (should not happen with the loadGLTFModel change)
+        playerGroup.userData.aabb = new THREE.Box3().setFromObject(playerGroup);
     }
 
-    scenerySpawnTimer -= delta;
-    if (scenerySpawnTimer <= 0) {
-      spawnSceneryObject();
-      scenerySpawnTimer = scenerySpawnInterval / 60.0; // Reset timer (assumes interval is in frames)
+    // Camera follow player X, with Y and Z fixed for now, looking at player
+    const targetCameraX = playerGroup.position.x; // MODIFIED - More direct X follow (removed * 0.5)
+    camera.position.x += (targetCameraX - camera.position.x) * cameraFollowSpeed;
+    camera.position.y = 4.0; // MODIFIED - Increased from 3.5
+    camera.position.z = 17; 
+    camera.lookAt(playerGroup.position.x, 1.5, playerGroup.position.z); // MODIFIED - LookAt Y increased from 1.0
+
+    // Determine player's current lane
+    const playerX = playerGroup.position.x;
+    if (playerX < -roadWidth/6) { 
+        playerCurrentLaneIndex = 0; 
+    } else if (playerX > roadWidth/6) {
+        playerCurrentLaneIndex = 2; 
+    } else {
+        playerCurrentLaneIndex = 1; 
     }
+
+    // Update time in current lane
+    if (playerCurrentLaneIndex === previousPlayerLaneIndex) {
+        timeInCurrentLane += deltaTime;
+    } else {
+        timeInCurrentLane = 0; 
+        previousPlayerLaneIndex = playerCurrentLaneIndex;
+    }
+
+    // Targeted spawn logic
+    if (timeInCurrentLane > TIME_TO_TRIGGER_TARGETED_SPAWN && 
+        targetedSpawnCooldownTimer <= 0 && 
+        obstacles.length < MAX_ACTIVE_OBSTACLES) {
+        // console.log(`Targeted spawn triggered for lane: ${playerCurrentLaneIndex}`);
+        spawnObstacle(); 
+        timeInCurrentLane = 0; 
+        targetedSpawnCooldownTimer = TARGETED_SPAWN_COOLDOWN_DURATION; 
+    }
+
+    // Regular obstacle spawning (wave)
+    obstacleSpawnTimer -= deltaTime;
+    if (obstacleSpawnTimer <= 0 && 
+        globalSpawnCooldownTimer <= 0 && 
+        obstacles.length < MAX_ACTIVE_OBSTACLES) {
+        spawnObstacle(); // Call with no arguments for wave spawn
+        obstacleSpawnTimer = currentObstacleSpawnInterval / 60.0; 
   }
 
   // Move obstacles and check for collisions
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const obstacle = obstacles[i];
-    obstacle.position.z += currentObstacleSpeed * delta * 60; // Adjust speed factor as needed
+        obstacle.position.z += currentObstacleSpeed * deltaTime * 60; 
+        obstacle.updateMatrixWorld(true); // Ensure obstacle's world matrix is up-to-date
 
-    // Basic 3D Collision Detection
-    if (playerGroup && obstacle.children.length > 0 && !gameOver) {
-        // Ensure matrices are up to date for accurate bounding boxes
-        playerGroup.updateMatrixWorld(true);
-        obstacle.updateMatrixWorld(true);
+        // Update obstacle's AABB each frame
+        if (obstacle.userData.aabb) {
+            obstacle.userData.aabb.setFromObject(obstacle);
+        } else {
+            // Fallback if aabb was not initialized (should not happen)
+            obstacle.userData.aabb = new THREE.Box3().setFromObject(obstacle);
+        }
 
-        const playerBox = new THREE.Box3().setFromObject(playerGroup);
-        const obstacleBox = new THREE.Box3().setFromObject(obstacle);
-        
-        if (playerBox.intersectsBox(obstacleBox)) {
+        // Update bounding box helper if it exists
+        // if (obstacle.userData.boundingBoxHelper) {
+        //     obstacle.userData.boundingBoxHelper.update();
+        // }
+
+        // 3D Collision Detection using AABB
+        if (obstacle.userData.aabb && playerGroup.userData.aabb) {
+            if (obstacle.userData.aabb.intersectsBox(playerGroup.userData.aabb)) {
             triggerGameOver();
             break; 
         }
     }
 
-    // Despawn off-screen (passed player and camera)
-    if (obstacle.position.z > camera.position.z + 30) { // Despawn if well behind camera (camera.position.z is 15)
+        if (obstacle.position.z > camera.position.z + 60) { 
+            if (obstacle.userData.boxHelper) scene.remove(obstacle.userData.boxHelper); // Ensure old helper ref is used
       scene.remove(obstacle);
       obstacles.splice(i, 1);
     }
   }
 
-  // Move scenery
-  for (let i = sceneryObjects.length - 1; i >= 0; i--) {
-    const scenery = sceneryObjects[i];
-    // Scenery moves at a speed relative to obstacles/road
-    scenery.position.z += currentObstacleSpeed * scenerySpeedFactor * delta * 60; 
-
-    // Despawn off-screen scenery
-    if (scenery.position.z > camera.position.z + 60) { // Despawn further back
-        scene.remove(scenery);
-        // It's good practice to also dispose of geometry and material if they are unique to this object
-        // scenery.traverse(child => {
-        //   if (child.isMesh) {
-        //     child.geometry.dispose();
-        //     if (child.material.isMaterial) {
-        //       child.material.dispose();
-        //     } else if (Array.isArray(child.material)) {
-        //       child.material.forEach(m => m.dispose());
-        //     }
-        //   }
-        // });
-        sceneryObjects.splice(i, 1);
-    }
-  }
-
   if (!gameOver) {
-    score += delta * 10; 
+        score += deltaTime * 10; 
     updateScoreDisplay();
-    updateDifficulty(); // MODIFIED - Call updateDifficulty
-  }
-
-  // Fixed camera for debugging model visibility
-  camera.position.set(0, 5, 15); 
-  camera.lookAt(0, 0, 0); 
-
-  // Simplified Debug Logs for animate loop
-  if (isPlayerModelLoaded && playerGroup && playerGroup.position) {
-    const pgPos = playerGroup.position;
-    // console.log(`DEBUG Anim: PlayerGroup XYZ: ${pgPos.x.toFixed(2)}, ${pgPos.y.toFixed(2)}, ${pgPos.z.toFixed(2)}`); //MODIFIED
-  } else if (!isPlayerModelLoaded) {
-    // console.log('DEBUG Anim: Waiting for player model...'); // Optional: can be spammy
-  }
-  
-  renderer.render(scene, camera);
-}
-
-function spawnObstacle() {
-  const obstacleGroup = new THREE.Group();
-
-  // Truck Body Material & Mesh
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color: truckBodyColor });
-  const bodyMesh = new THREE.Mesh(truckBodyGeometry, bodyMaterial);
-  bodyMesh.position.y = truckBodyHeight / 2; // Assuming group pivot is at ground level
-  obstacleGroup.add(bodyMesh);
-
-  // Truck Cabin Material & Mesh
-  const cabinMaterial = new THREE.MeshStandardMaterial({ color: truckCabinColor });
-  const cabinMesh = new THREE.Mesh(truckCabinGeometry, cabinMaterial);
-  // Position cabin on top and front of the truck body
-  cabinMesh.position.y = truckBodyHeight + truckCabinHeight / 2;
-  cabinMesh.position.z = truckBodyLength / 2 - truckCabinLength / 2 - 0.1; // Front of body
-  obstacleGroup.add(cabinMesh);
-  
-  // Truck Wheels (Cylinders)
-  const wheelMaterial = new THREE.MeshStandardMaterial({ color: truckWheelColor });
-  const wheelYPos = truckWheelRadius;
-
-  // Front Wheels (paired)
-  const flWheelMesh = new THREE.Mesh(truckWheelGeometry, wheelMaterial);
-  flWheelMesh.rotation.z = Math.PI / 2; // Rotate cylinder to stand upright
-  flWheelMesh.position.set(-truckBodyWidth/2 + truckWheelRadius*0.7, wheelYPos, truckBodyLength/2 - truckWheelRadius * 1.5);
-  obstacleGroup.add(flWheelMesh);
-
-  const frWheelMesh = new THREE.Mesh(truckWheelGeometry, wheelMaterial);
-  frWheelMesh.rotation.z = Math.PI / 2; // Rotate cylinder to stand upright
-  frWheelMesh.position.set(truckBodyWidth/2 - truckWheelRadius*0.7, wheelYPos, truckBodyLength/2 - truckWheelRadius* 1.5);
-  obstacleGroup.add(frWheelMesh);
-
-  // Rear Wheels (paired, dually-style or just wider apart)
-  const rlWheelMesh = new THREE.Mesh(truckWheelGeometry, wheelMaterial);
-  rlWheelMesh.rotation.z = Math.PI / 2; // Rotate cylinder to stand upright
-  rlWheelMesh.position.set(-truckBodyWidth/2 + truckWheelRadius*0.7, wheelYPos, -truckBodyLength/2 + truckWheelRadius * 1.5);
-  obstacleGroup.add(rlWheelMesh);
-
-  const rrWheelMesh = new THREE.Mesh(truckWheelGeometry, wheelMaterial);
-  rrWheelMesh.rotation.z = Math.PI / 2; // Rotate cylinder to stand upright
-  rrWheelMesh.position.set(truckBodyWidth/2 + truckWheelRadius*0.7, wheelYPos, -truckBodyLength/2 + truckWheelRadius * 1.5);
-  obstacleGroup.add(rrWheelMesh);
-
-  // Truck Headlights
-  const truckHeadlightRadius = 0.15 * vehicleScaleFactor, 
-        truckHeadlightDepth = 0.1 * vehicleScaleFactor;
-  const truckHeadlightGeom = new THREE.CylinderGeometry(truckHeadlightRadius, truckHeadlightRadius * 0.9, truckHeadlightDepth, 12);
-  
-  const leftHeadlight = new THREE.Mesh(truckHeadlightGeom, truckHeadlightMaterial);
-  leftHeadlight.rotation.x = Math.PI / 2;
-  leftHeadlight.position.set(
-    -truckCabinWidth / 2 + truckHeadlightRadius + (0.1 * vehicleScaleFactor), 
-    cabinMesh.position.y - truckCabinHeight / 2 + truckHeadlightRadius + (0.1 * vehicleScaleFactor), 
-    cabinMesh.position.z + truckCabinLength / 2 + truckHeadlightDepth / 2
-  );
-  obstacleGroup.add(leftHeadlight);
-
-  const rightHeadlight = new THREE.Mesh(truckHeadlightGeom, truckHeadlightMaterial);
-  rightHeadlight.rotation.x = Math.PI / 2;
-  rightHeadlight.position.set(
-    truckCabinWidth / 2 - truckHeadlightRadius - (0.1 * vehicleScaleFactor), 
-    cabinMesh.position.y - truckCabinHeight / 2 + truckHeadlightRadius + (0.1 * vehicleScaleFactor), 
-    cabinMesh.position.z + truckCabinLength / 2 + truckHeadlightDepth / 2
-  );
-  obstacleGroup.add(rightHeadlight);
-
-  // Truck Taillights
-  const truckTaillightWidth = 0.2 * vehicleScaleFactor, 
-        truckTaillightHeight = 0.15 * vehicleScaleFactor, 
-        truckTaillightDepth = 0.05 * vehicleScaleFactor;
-  const truckTaillightGeom = new THREE.BoxGeometry(truckTaillightWidth, truckTaillightHeight, truckTaillightDepth);
-
-  const leftTaillight = new THREE.Mesh(truckTaillightGeom, truckTaillightMaterial);
-  leftTaillight.position.set(
-    -truckBodyWidth / 2 + truckTaillightWidth / 2 + (0.1 * vehicleScaleFactor),
-    bodyMesh.position.y, 
-    bodyMesh.position.z - truckBodyLength / 2 - truckTaillightDepth / 2
-  );
-  obstacleGroup.add(leftTaillight);
-
-  const rightTaillight = new THREE.Mesh(truckTaillightGeom, truckTaillightMaterial);
-  rightTaillight.position.set(
-    truckBodyWidth / 2 - truckTaillightWidth / 2 - (0.1 * vehicleScaleFactor),
-    bodyMesh.position.y, 
-    bodyMesh.position.z - truckBodyLength / 2 - truckTaillightDepth / 2
-  );
-  obstacleGroup.add(rightTaillight);
-
-  // Choose a random lane
-  const laneIndex = Math.floor(Math.random() * lanePositions.length);
-  obstacleGroup.position.x = lanePositions[laneIndex];
-  obstacleGroup.position.y = 0; // Group pivot at ground level
-  obstacleGroup.position.z = -100; 
-
-  scene.add(obstacleGroup);
-  obstacles.push(obstacleGroup); // Store the group
-}
-
-function spawnSceneryObject() {
-    const objectType = Math.random(); // Randomly determine scenery type
-    let sceneryGroup = new THREE.Group(); // Use a group for all scenery types for consistency
-
-    const side = Math.random() < 0.5 ? -1 : 1; // -1 for left, 1 for right
-    const lateralOffset = roadWidth / 2 + 5 + Math.random() * 10; // Spawn 5-15 units away from road edge
-    const spawnZ = -150; // Spawn further back than obstacles
-
-    if (objectType < 0.33) { // Type 1: Pole with Light
-        const poleHeight = Math.random() * 5 + 5;
-        const poleRadius = 0.15;
-        const poleGeometry = new THREE.CylinderGeometry(poleRadius, poleRadius, poleHeight, 8);
-        const poleMaterial = new THREE.MeshStandardMaterial({ color: poleColor });
-        const poleMesh = new THREE.Mesh(poleGeometry, poleMaterial);
-        poleMesh.position.y = poleHeight / 2;
-        sceneryGroup.add(poleMesh);
-
-        const lightFixtureSize = 0.4;
-        const lightFixtureGeom = new THREE.BoxGeometry(lightFixtureSize, lightFixtureSize * 0.8, lightFixtureSize);
-        const lightFixtureMesh = new THREE.Mesh(lightFixtureGeom, poleLightMaterial);
-        lightFixtureMesh.position.y = poleHeight + (lightFixtureSize * 0.8) / 2;
-        // Optionally, position it slightly forward
-        // lightFixtureMesh.position.z = lightFixtureSize / 2;
-        sceneryGroup.add(lightFixtureMesh);
-
-    } else if (objectType < 0.66) { // Type 2: Tree
-        const trunkHeight = Math.random() * 3 + 2;
-        const trunkRadius = Math.random() * 0.3 + 0.2;
-        const trunkGeometry = new THREE.CylinderGeometry(trunkRadius * 0.7, trunkRadius, trunkHeight, 8);
-        const trunkMaterial = new THREE.MeshStandardMaterial({ color: treeTrunkColor });
-        const trunkMesh = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunkMesh.position.y = trunkHeight / 2;
-        sceneryGroup.add(trunkMesh);
-
-        const foliageRadius = Math.random() * 1.5 + 1;
-        const foliageSegments = 8; // Keep it low poly
-        const foliageGeometry = new THREE.SphereGeometry(foliageRadius, foliageSegments, foliageSegments);
-        const foliageMaterial = new THREE.MeshStandardMaterial({ color: bushColor });
-        const foliageMesh = new THREE.Mesh(foliageGeometry, foliageMaterial);
-        foliageMesh.position.y = trunkHeight + foliageRadius * 0.8; // Position foliage on top of trunk
-        sceneryGroup.add(foliageMesh);
-        
-    } else { // Type 3: Taller Building Silhouette (remains a single mesh, added to group)
-        const buildingWidth = Math.random() * 6 + 4; // Slightly larger and more varied
-        const buildingHeight = Math.random() * 10 + 8;
-        const buildingDepth = Math.random() * 5 + 3;
-        const buildingGeometry = new THREE.BoxGeometry(buildingWidth, buildingHeight, buildingDepth);
-        const buildingMaterial = new THREE.MeshStandardMaterial({ color: buildingColor });
-        const buildingMesh = new THREE.Mesh(buildingGeometry, buildingMaterial); // Create mesh
-        buildingMesh.position.y = buildingGeometry.parameters.height / 2;
-        sceneryGroup.add(buildingMesh); // Add mesh to group
+        updateDifficulty(); 
     }
 
-    sceneryGroup.position.x = side * lateralOffset;
-    sceneryGroup.position.z = spawnZ;
-    sceneryGroup.position.y = 0; // Ensure base of group is at Y=0, individual components are offset internally
-    
-    scene.add(sceneryGroup);
-    sceneryObjects.push(sceneryGroup); // Store the group
+    renderer.render(scene, camera);
+}
+
+function spawnObstacle() { 
+    if (obstacles.length >= MAX_ACTIVE_OBSTACLES || globalSpawnCooldownTimer > 0) {
+        // console.log(`DEBUG: Spawn skipped. Obstacles: ${obstacles.length}, Cooldown: ${globalSpawnCooldownTimer.toFixed(2)}`);
+        return; 
+    }
+
+    const truckSpawnZ = -200; // Initial Z position for new trucks
+    const truckZOffsetMax = 20; // Max Z difference for trucks spawned in the same event
+    let chosenLaneIndices = [];
+
+    // Determine if it's a "targeted pressure" situation or a normal spawn
+    if (timeInCurrentLane > TIME_TO_TRIGGER_TARGETED_SPAWN && targetedSpawnCooldownTimer <= 0) {
+        // console.log("DEBUG: Attempting targeted pressure spawn.");
+        let availableLanesForPressure = [0, 1, 2];
+        availableLanesForPressure.splice(playerCurrentLaneIndex, 1); // Remove player's current lane
+
+        // Attempt to spawn in the other two lanes
+        if (obstacles.length < MAX_ACTIVE_OBSTACLES && availableLanesForPressure.length > 0) {
+            chosenLaneIndices.push(availableLanesForPressure[0]);
+        }
+        if (obstacles.length + chosenLaneIndices.length < MAX_ACTIVE_OBSTACLES && availableLanesForPressure.length > 1) {
+            chosenLaneIndices.push(availableLanesForPressure[1]);
+        }
+        
+        if (chosenLaneIndices.length > 0) {
+            timeInCurrentLane = 0; // Reset time in lane as we've acted on it
+            targetedSpawnCooldownTimer = TARGETED_SPAWN_COOLDOWN_DURATION;
+            // console.log(`DEBUG: Targeted pressure: Spawning in lanes ${chosenLaneIndices.join(', ')}`);
+        } else {
+            // console.log("DEBUG: Targeted pressure condition met, but no lanes chosen (MAX_OBSTACLES likely reached for multi-spawn)");
+        }
+    } else {
+        // Normal spawn: try to spawn two trucks in different lanes, leaving one open, 
+        // but be smarter about whether the "open" lane is truly clear.
+        // console.log("DEBUG: Attempting smart normal spawn.");
+        let allLanes = [0, 1, 2];
+        // Shuffle lanes to pick two randomly for potential spawning
+        for (let i = allLanes.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [allLanes[i], allLanes[j]] = [allLanes[j], allLanes[i]];
+        }
+
+        const potentialLaneA = allLanes[0];
+        const potentialLaneB = allLanes[1];
+        const potentialOpenLane = allLanes[2]; // The lane intended to be left open by this wave
+
+        let isPotentialOpenLaneClear = true;
+        const checkSafeSpawnDistance = truckZOffsetMax * 3; // How far ahead to check in the open lane
+
+        for (const obs of obstacles) {
+            if (obs.userData.laneIndex === potentialOpenLane && 
+                obs.position.z > (truckSpawnZ - checkSafeSpawnDistance) && 
+                obs.position.z < (truckSpawnZ + checkSafeSpawnDistance * 2)) { // Check a zone around spawn Z
+                isPotentialOpenLaneClear = false;
+                // console.log(`DEBUG: Normal spawn: Potential open lane ${potentialOpenLane} is NOT clear near spawn Z.`);
+                break;
+            }
+        }
+
+        if (isPotentialOpenLaneClear) {
+            // console.log(`DEBUG: Normal spawn: Potential open lane ${potentialOpenLane} IS clear. Spawning two trucks.`);
+            if (obstacles.length < MAX_ACTIVE_OBSTACLES) {
+                chosenLaneIndices.push(potentialLaneA);
+            }
+            if (obstacles.length + chosenLaneIndices.length < MAX_ACTIVE_OBSTACLES) {
+                chosenLaneIndices.push(potentialLaneB);
+            }
+        } else {
+            // console.log(`DEBUG: Normal spawn: Potential open lane ${potentialOpenLane} NOT clear. Spawning one truck.`);
+            // Fallback: spawn only one truck in one of the initially selected lanes for the wave,
+            // choosing the one furthest from the player.
+            if (obstacles.length < MAX_ACTIVE_OBSTACLES) {
+                let laneToSpawnSingleTruckIn;
+                // Determine which of potentialLaneA or potentialLaneB is further from playerCurrentLaneIndex
+                const distA = Math.abs(potentialLaneA - playerCurrentLaneIndex);
+                const distB = Math.abs(potentialLaneB - playerCurrentLaneIndex);
+
+                if (distA >= distB) { // Prefer A if equidistant or A is further
+                    laneToSpawnSingleTruckIn = potentialLaneA;
+                } else { // B is further
+                    laneToSpawnSingleTruckIn = potentialLaneB;
+                }
+                chosenLaneIndices.push(laneToSpawnSingleTruckIn);
+                // console.log(`DEBUG: Fallback single spawn in lane: ${laneToSpawnSingleTruckIn} (furthest from player in lane ${playerCurrentLaneIndex})`);
+            }
+        }
+        // console.log(`DEBUG: Normal spawn: Attempting to spawn in lanes ${chosenLaneIndices.join(', ')}`);
+    }
+
+    // Now spawn the trucks if any lanes were chosen
+    let spawnedCountThisEvent = 0;
+    for (let i = 0; i < chosenLaneIndices.length; i++) {
+        if (obstacles.length >= MAX_ACTIVE_OBSTACLES) {
+            // console.log("DEBUG: Max obstacles reached during multi-truck spawn attempt.");
+            break; 
+        }
+        const laneIdx = chosenLaneIndices[i];
+        let currentTruckSpawnZ = truckSpawnZ;
+
+        // If spawning a pair, ensure the second truck has a fixed Z offset from the first.
+        if (chosenLaneIndices.length === 2 && i === 1) { 
+            currentTruckSpawnZ -= truckZOffsetMax; // Second truck is truckZOffsetMax units behind the first
+        }
+        // If only one truck is chosen (i will be 0), it uses truckSpawnZ.
+        // If it's the first truck of a pair (i will be 0), it also uses truckSpawnZ.
+        
+        createAndAddObstacle(lanePositions[laneIdx], laneIdx, currentTruckSpawnZ);
+        spawnedCountThisEvent++;
+    }
+
+    if (spawnedCountThisEvent > 0) {
+        globalSpawnCooldownTimer = GLOBAL_SPAWN_COOLDOWN; 
+        // console.log(`DEBUG: Spawned ${spawnedCountThisEvent} trucks. Global cooldown set to ${GLOBAL_SPAWN_COOLDOWN.toFixed(2)}s.`);
+    }
+    // Reset interval timer regardless of spawn success to keep attempts regular
+    // This ensures that even if a spawn event results in 0 trucks (e.g., MAX_ACTIVE_OBSTACLES was met just before createAndAddObstacle)
+    // the game still tries to spawn again after the currentObstacleSpawnInterval.
+    obstacleSpawnTimer = currentObstacleSpawnInterval / 60.0; 
+}
+
+function createAndAddObstacle(laneX, laneIndex, spawnZ) {
+    if (obstacles.length >= MAX_ACTIVE_OBSTACLES) return;
+
+    const manager = new THREE.LoadingManager();
+    // Restore and refine the URL modifier
+    manager.setURLModifier((url) => {
+        let modifiedUrl = url;
+        const lowerCaseUrl = url.toLowerCase();
+        const originalUrl = url; // Keep original for logging
+
+        // Check if it's an image texture
+        const isImageTexture = lowerCaseUrl.endsWith('.png') ||
+                               lowerCaseUrl.endsWith('.jpg') ||
+                               lowerCaseUrl.endsWith('.jpeg') ||
+                               lowerCaseUrl.endsWith('.webp') ||
+                               lowerCaseUrl.endsWith('.bmp');
+
+        if (isImageTexture) {
+            // Check if the texture is being requested from the truck's expected texture subdirectory
+            if (url.includes('models/truck/textures/')) {
+                const textureFileName = url.split('/').pop();
+                modifiedUrl = `textures/${textureFileName}`; // Remap to the root /textures/ folder
+                console.log(`[Truck Texture Remap] Original: ${originalUrl}, New: ${modifiedUrl}`);
+            } else {
+                // It's an image, but not from the truck's specific texture path we need to remap
+                console.log(`[Image Passthrough] URL: ${originalUrl} (Not a truck sub-texture path)`);
+            }
+        } else {
+            // Not an image file (e.g., .gltf, .bin), pass through
+            console.log(`[Non-Image Passthrough] URL: ${originalUrl}`);
+        }
+        return modifiedUrl;
+    });
+
+    const loader = new THREE.GLTFLoader(manager);
+    loader.load(
+        'models/truck/scene.gltf',
+        (gltf) => {
+            console.log("DEBUG: Truck GLTF loaded successfully via createAndAddObstacle.");
+            const obstacleGroup = new THREE.Group();
+            const truckModel = gltf.scene;
+
+            // --- Standard model setup (scaling, material properties) ---
+            const box = new THREE.Box3().setFromObject(truckModel);
+            const size = box.getSize(new THREE.Vector3());
+            const desiredTruckWidth = laneWidth * 0.70; // Target 70% of lane width
+            const scale = desiredTruckWidth / size.x;
+
+            truckModel.scale.set(scale, scale, scale);
+            box.setFromObject(truckModel); // Recalculate bounding box after scaling
+            const scaledSize = box.getSize(new THREE.Vector3());
+            const scaledCenter = box.getCenter(new THREE.Vector3());
+
+            truckModel.position.y = -scaledCenter.y + scaledSize.y / 2; // Align bottom with ground
+            // --- End standard model setup ---
+
+            obstacleGroup.add(truckModel);
+            obstacleGroup.position.set(laneX, 0, spawnZ); // Y should be 0 for ground level
+
+            obstacleGroup.userData.isObstacle = true;
+            obstacleGroup.userData.type = 'truck';
+            obstacleGroup.userData.laneIndex = laneIndex;
+
+            // Calculate bounding box for the obstacle group
+            // const obstacleBox = new THREE.Box3().setFromObject(obstacleGroup); // Old name
+            // obstacleGroup.userData.boundingBox = obstacleBox; // Old name
+            
+            // Initialize and set the AABB for the obstacle group
+            obstacleGroup.updateMatrixWorld(true); // Ensure matrix is up-to-date before AABB calculation
+            obstacleGroup.userData.aabb = new THREE.Box3().setFromObject(obstacleGroup);
+            // console.log(`DEBUG: Obstacle AABB for lane ${laneIndex}:`, obstacleGroup.userData.aabb.min, obstacleGroup.userData.aabb.max);
+
+
+             // Make bounding box visible for debugging (using the new aabb)
+            // const helper = new THREE.Box3Helper(obstacleGroup.userData.aabb, 0xffff00);
+            // scene.add(helper);
+            // obstacleGroup.userData.boxHelper = helper; // Store helper on userData if needed
+
+            truckModel.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true; // Meshes can also receive shadows
+                    if (child.material) {
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(mat => {
+                                if (mat.map) {
+                                    mat.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                                    mat.needsUpdate = true;
+                                }
+                                // You can set other material properties here if needed
+                                // mat.metalness = mat.metalness !== undefined ? mat.metalness : 0.5;
+                                // mat.roughness = mat.roughness !== undefined ? mat.roughness : 0.5;
+                            });
+                        } else {
+                            if (child.material.map) {
+                                child.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                                child.material.needsUpdate = true;
+                            }
+                            // child.material.metalness = child.material.metalness !== undefined ? child.material.metalness : 0.5;
+                            // child.material.roughness = child.material.roughness !== undefined ? child.material.roughness : 0.5;
+                        }
+                    }
+                }
+            });
+
+            scene.add(obstacleGroup);
+            obstacles.push(obstacleGroup);
+            console.log(`DEBUG: Truck obstacle added to scene at X:${laneX}, Z:${spawnZ}. Total obstacles: ${obstacles.length}`);
+            console.log("DEBUG: Truck Model Transform:", truckModel.matrixWorld.elements);
+
+
+        },
+        undefined, // onProgress callback (optional)
+        (error) => {
+            console.error("Error loading truck GLTF:", error);
+            if (error.target && error.target.src) {
+                 console.error("Failed URL:", error.target.src);
+            }
+            console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+
+        }
+    );
 }
 
 function updateScoreDisplay() {
-    if (scoreDisplay) scoreDisplay.textContent = score + ' m';
+    if (scoreDisplay) scoreDisplay.textContent = Math.floor(score);
 }
 
 function triggerGameOver() {
     gameOver = true;
     currentObstacleSpeed = 0; // Stop obstacles immediately
-    if (finalScoreDisplay) finalScoreDisplay.textContent = score;
+    if (finalScoreDisplay) finalScoreDisplay.textContent = Math.floor(score); // Display integer score
     if (gameOverScreen) gameOverScreen.style.display = 'flex'; // Show game over screen
-    console.log("Collision Detected! Game Over. Final Score: " + score);
+    console.log("Collision Detected! Game Over. Final Score: " + Math.floor(score));
+
+    if (backgroundAudio) {
+        backgroundAudio.pause();
+        backgroundAudio.currentTime = 0; // Reset for next game
+        console.log("DEBUG: Background audio paused and reset.");
+    }
 }
 
 function restartGame() {
-    gameOver = false;
+    obstacles.forEach(obstacle => {
+        if (obstacle.userData && obstacle.userData.boundingBoxHelper) { 
+            scene.remove(obstacle.userData.boundingBoxHelper);
+        }
+        scene.remove(obstacle); 
+    });
+    obstacles = [];
     score = 0;
-    updateScoreDisplay();
-    currentObstacleSpeed = initialObstacleSpeed; // Reset speed
-    currentObstacleSpawnInterval = initialObstacleSpawnInterval; // Reset spawn interval
-
-    obstacleSpawnTimer = currentObstacleSpawnInterval / 60.0; // MODIFIED - Reset timer
-    scenerySpawnTimer = scenerySpawnInterval / 60.0;   // MODIFIED - Reset timer
+    currentObstacleSpeed = initialObstacleSpeed;
+    currentObstacleSpawnInterval = initialObstacleSpawnInterval;
+    obstacleSpawnTimer = currentObstacleSpawnInterval / 60.0; 
+    globalSpawnCooldownTimer = 0; 
+    gameOver = false;
+    if(gameOverScreen) gameOverScreen.style.display = 'none';
 
     if (playerGroup) {
-        playerGroup.position.set(0, 0, 3);
+        // Reset player to middle lane, slightly above ground, at starting Z
+        playerGroup.position.set(lanePositions[1], 1.0, 0); 
+    }
         leftPressed = false; 
         rightPressed = false;
-    }
-    for (let i = obstacles.length - 1; i >= 0; i--) {
-        scene.remove(obstacles[i]);
-    }
-    obstacles = [];
 
-    // Clear existing scenery objects
-    for (let i = sceneryObjects.length - 1; i >= 0; i--) {
-        scene.remove(sceneryObjects[i]);
-        // Consider disposing geometry/material if not shared and created uniquely
-    }
-    sceneryObjects = [];
+    // Reset targeted spawn variables
+    timeInCurrentLane = 0;
+    targetedSpawnCooldownTimer = 0;
+    playerCurrentLaneIndex = 1; // Start in middle lane
+    previousPlayerLaneIndex = 1; // Reset this too
 
-    if (gameOverScreen) gameOverScreen.style.display = 'none';
+    updateScoreDisplay();
+    if (clock) clock.start();
+
+    if (backgroundAudio) {
+        backgroundAudio.play().catch(error => {
+            console.warn("Failed to play background audio on restart:", error);
+        });
+        console.log("DEBUG: Background audio play attempted on restart.");
+    }
 }
 
 // Placeholder for HUD update if needed
@@ -1049,18 +1437,14 @@ function restartGame() {
 
 // NEW Placeholder function
 function updateDifficulty() {
-    // This function can be expanded to increase game difficulty over time
-    // For example, by increasing currentObstacleSpeed or decreasing currentObstacleSpawnInterval
-    // based on score or time.
-    // console.log("DEBUG: updateDifficulty called, current speed:", currentObstacleSpeed, "spawn interval:", currentObstacleSpawnInterval);
+    const scoreFactorSpeed = Math.floor(score / 50); // MODIFIED - Faster speed increase (was 150)
+    currentObstacleSpeed = Math.min(initialObstacleSpeed + scoreFactorSpeed * 0.05, maxObstacleSpeed);
 
-    if (!gameOver) { // Only update if game is running
-        // Example: Increase speed slightly based on score
-        // currentObstacleSpeed = initialObstacleSpeed + (score / 5000); // Increase speed every 500 score points
-        // currentObstacleSpeed = Math.min(currentObstacleSpeed, maxObstacleSpeed); // Cap speed
+    const scoreFactorInterval = Math.floor(score / 10); // MODIFIED - Faster interval decrease (was 30)
+    currentObstacleSpawnInterval = Math.max(initialObstacleSpawnInterval - scoreFactorInterval * 5, minObstacleSpawnInterval);
 
-        // Example: Decrease spawn interval based on score
-        // currentObstacleSpawnInterval = initialObstacleSpawnInterval - (score / 100); // Decrease interval every 100 score
-        // currentObstacleSpawnInterval = Math.max(currentObstacleSpawnInterval, minObstacleSpawnInterval);
-    }
+    // Update road scroll speed based on difficulty
+    // Initial speed is roadScrollSpeed (0.03), max is maxRoadScrollSpeed (0.08)
+    // The increment (0.0015) is chosen to provide a noticeable but not overly jarring increase.
+    currentRoadScrollSpeed = Math.min(roadScrollSpeed + scoreFactorSpeed * 0.0015, maxRoadScrollSpeed); // MODIFIED - Multiplier increased from 0.0005
 }
