@@ -11,6 +11,8 @@ let leftPressed = false, rightPressed = false;
 let textureLoader; // Declare textureLoader globally or pass it around
 const roadScrollSpeed = 0.02; // Adjusted scroll speed
 
+let playerRickshawScaledBodyWidth; // Global variable for player's scaled width
+
 let obstacles = [];
 const initialObstacleSpeed = 0.3; // Slightly reduced initial speed
 let currentObstacleSpeed = initialObstacleSpeed;
@@ -597,6 +599,8 @@ function initThreeJS() {
   const bodyWidth = 1.2 * vehicleScaleFactor, 
         bodyHeight = 0.4 * vehicleScaleFactor, 
         bodyLength = 2.0 * vehicleScaleFactor;
+  playerRickshawScaledBodyWidth = bodyWidth; // Assign to global variable
+
   const bodyGeometry = new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyLength);
   const bodyMesh = new THREE.Mesh(bodyGeometry, rickshawBodyMaterial);
   bodyMesh.name = "RickshawBody";
@@ -700,7 +704,7 @@ function animate() {
       const moveSpeed = 0.15; // This might need adjustment if player feels too slow/fast due to scale
       if (leftPressed) playerGroup.position.x -= moveSpeed;
       if (rightPressed) playerGroup.position.x += moveSpeed;
-      const playerEffectiveBodyWidth = bodyWidth; // Uses the new scaled bodyWidth from initThreeJS
+      const playerEffectiveBodyWidth = playerRickshawScaledBodyWidth; // Use the new global variable
       const playerHalfEffectiveWidth = playerEffectiveBodyWidth / 2;
       const roadBoundary = groundMesh.geometry.parameters.width / 2 - playerHalfEffectiveWidth;
       playerGroup.position.x = Math.max(-roadBoundary, Math.min(roadBoundary, playerGroup.position.x));
