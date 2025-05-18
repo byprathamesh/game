@@ -73,6 +73,11 @@ const buildingColor = 0x778899; // Light Slate Gray
 const treeTrunkColor = 0x8B4513; // SaddleBrown
 const poleLightMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0, emissive: 0x777700 });
 
+let clock = new THREE.Clock(); // Add clock for delta time in animation
+let isPlayerModelLoaded = false; // Flag to indicate if the GLTF model has loaded
+const desiredRickshawHeight = 1.5; // Define this globally or pass as param
+const roadWidth = 30; // Assuming this is defined somewhere, needed for lane boundaries
+
 window.onload = function() {
   // Initialize Three.js Environment First
   initThreeJS();
@@ -474,34 +479,33 @@ window.onload = function() {
 
 function loadRoadTexture() {
     if (!textureLoader || !groundMesh) {
-        console.warn('TextureLoader or groundMesh not ready for road texture loading');
-        // Optionally, retry after a short delay or ensure initThreeJS completes first
-        setTimeout(loadRoadTexture, 100); 
+        console.warn("TextureLoader or groundMesh not initialized for loadRoadTexture");
         return;
     }
-
     textureLoader.load(
-        'textures/stone.png',
-        function (texture) { // onLoad callback
+        'textures/stone.png', // Path to your road texture
+        function(texture) { // onLoad callback
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
-            
-            const planeWidth = groundMesh.geometry.parameters.width;
-            const planeHeight = groundMesh.geometry.parameters.height;
-            // Assuming the stone texture is roughly square, tile it multiple times
-            // Adjust these values to control tiling density
-            texture.repeat.set(planeWidth / 10, planeHeight / 10); 
-
+            texture.repeat.set(roadWidth / 10, 20); // Adjust repeat based on roadWidth and desired look
             groundMesh.material.map = texture;
             groundMesh.material.needsUpdate = true;
+            console.log("Road texture loaded and applied.");
         },
-        undefined, // onProgress callback
-        function (err) { // onError callback
-            console.error('An error happened loading the road texture:', err);
-            // Fallback: Ensure ground is visible even if texture fails
-            if (groundMesh) groundMesh.material.color.setHex(0x333333);
+        undefined, // onProgress callback (optional)
+        function(err) { // onError callback
+            console.error('An error occurred loading the road texture:', err);
         }
     );
+
+    // Example for lane lines as a texture (if you want to replace the Line objects)
+    // textureLoader.load('textures/lane_lines.png', function(texture) {
+    //     texture.wrapS = THREE.RepeatWrapping;
+    //     texture.wrapT = THREE.RepeatWrapping;
+    //     texture.repeat.set(1, 10); // Adjust as needed
+    //     roadLinesMaterial = new THREE.MeshStandardMaterial({ map: texture, transparent: true, side:THREE.DoubleSide });
+    //     // You'd then create a plane for these lines and add it to the scene.
+    // });
 }
 
 function loadVehicleTextures() {
@@ -525,20 +529,22 @@ function initThreeJS() {
 
   // Scene
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x222222); // Dark grey background, similar to original canvas
+  scene.background = new THREE.Color(0x87CEEB); // Sky blue background
 
   // Camera
   camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-  // DEBUG: Fixed camera position and lookAt
-  camera.position.set(0, 5, 15); // Adjusted Y and Z for a better overview
-  camera.lookAt(0, 0, 0); 
-  console.log("DEBUG: Initial Camera Position:", camera.position);
+  // Initial camera position - will be fixed for debugging first
+  camera.position.set(0, 5, 15); // Fixed position
+  camera.lookAt(0, 0, 0);       // Fixed target
+  console.log("DEBUG: Initial Camera Position:", camera.position.x, camera.position.y, camera.position.z);
   console.log("DEBUG: Camera is looking at (0,0,0)");
 
   // Renderer
   renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
   renderer.setSize(canvas.clientWidth, canvas.clientHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.shadowMap.enabled = true;
+  document.getElementById('gameContainer').appendChild(renderer.domElement);
 
   // Handle canvas resizing
   const resizeObserver = new ResizeObserver(entries => {
@@ -552,341 +558,215 @@ function initThreeJS() {
   resizeObserver.observe(canvas);
 
   // Lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // Slightly brighter ambient
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
   scene.add(ambientLight);
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Slightly brighter directional
-  directionalLight.position.set(8, 15, 10);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(5, 10, 7);
+  directionalLight.castShadow = true;
   scene.add(directionalLight);
 
   // Ground Plane (Road)
-  const groundGeometry = new THREE.PlaneGeometry(30, 200); // Ground width is 30
-  const groundMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, name: 'GroundMaterial' });
+  const groundGeometry = new THREE.PlaneGeometry(roadWidth, 200); // roadWidth x length
+  // Placeholder material, actual texture loaded in loadRoadTexture()
+  groundMaterial = new THREE.MeshStandardMaterial({ color: 0x444444, side: THREE.DoubleSide }); 
   groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
   groundMesh.rotation.x = -Math.PI / 2;
-  groundMesh.position.y = 0;
+  groundMesh.receiveShadow = true;
   scene.add(groundMesh);
 
-  // Lane Markings
-  const laneMarkingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff }); // White markings
-  const markingWidth = 0.2;
-  const markingLength = groundMesh.geometry.parameters.height; // Same length as the road plane
-  const markingHeight = 0.05; // Very slightly above the road to prevent z-fighting
-
-  // Lane marking 1 (between left and center lane)
-  // Ground width 30, 3 lanes of 10. Lane centers: -10, 0, 10.
-  // Marking position: -5 and 5
-  const laneMarkingGeometry1 = new THREE.BoxGeometry(markingWidth, markingHeight, markingLength);
-  const laneMarking1 = new THREE.Mesh(laneMarkingGeometry1, laneMarkingMaterial);
-  laneMarking1.position.set(-laneWidth / 2, markingHeight / 2, 0); // Centered on Z with road
-  scene.add(laneMarking1);
-
-  // Lane marking 2 (between center and right lane)
-  const laneMarkingGeometry2 = new THREE.BoxGeometry(markingWidth, markingHeight, markingLength);
-  const laneMarking2 = new THREE.Mesh(laneMarkingGeometry2, laneMarkingMaterial);
-  laneMarking2.position.set(laneWidth / 2, markingHeight / 2, 0);
-  scene.add(laneMarking2);
-
-  // DEBUG: Add a test cube at the origin
-  const testCubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-  const testCubeMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Bright red
-  testCube = new THREE.Mesh(testCubeGeometry, testCubeMaterial);
-  testCube.position.set(0, 0.5, 0); // Position it slightly above ground
-  scene.add(testCube);
-  console.log("DEBUG: Test Cube added at scene origin, position:", testCube.position);
+  // Lane Markings (Placeholder - can be refined or use texture)
+  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+  const points = [];
+  points.push(new THREE.Vector3(-roadWidth / 6, 0, -100));
+  points.push(new THREE.Vector3(-roadWidth / 6, 0, 100));
+  let line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), lineMaterial);
+  scene.add(line);
+  points.length = 0; // Clear points array
+  points.push(new THREE.Vector3(roadWidth / 6, 0, -100));
+  points.push(new THREE.Vector3(roadWidth / 6, 0, 100));
+  line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), lineMaterial);
+  scene.add(line);
 
   // Player Rickshaw Model (Refined Black and Yellow)
   playerGroup = new THREE.Group();
-  playerGroup.name = "PlayerRickshaw";
-  scene.add(playerGroup);
+  // scene.add(playerGroup); // IMPORTANT: playerGroup is added to scene INSIDE loadGLTFModel after model is ready
+  // playerGroup.position.set(0, 0, 3); // Initial position is set INSIDE loadGLTFModel
 
-  /* --- Start of commented out geometric rickshaw ---
-  const rickshawBodyMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 }); 
-  const rickshawCabinMaterial = new THREE.MeshStandardMaterial({ color: 0x0A0A0A }); 
-  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x1A1A1A }); 
-  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x777777 }); 
-  const seatMaterial = new THREE.MeshStandardMaterial({ color: 0x4A3B31 }); 
-  const headlightMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0, emissive: 0x999900 }); 
+  // Load the GLTF model for the player
+  loadGLTFModel(); 
 
-  const bodyWidth = 1.2 * vehicleScaleFactor, 
-        bodyHeight = 0.4 * vehicleScaleFactor, 
-        bodyLength = 2.0 * vehicleScaleFactor;
-  playerRickshawScaledBodyWidth = bodyWidth; 
+  // Test Cube for visibility check
+  const testGeometry = new THREE.BoxGeometry(1, 1, 1);
+  const testMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Bright red
+  testCube = new THREE.Mesh(testGeometry, testMaterial);
+  testCube.position.set(0, 0.5, 0); // At origin, slightly above ground
+  scene.add(testCube);
+  console.log("DEBUG: Test Cube added at scene origin, position:", testCube.position);
 
-  const bodyGeometry = new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyLength);
-  const bodyMesh = new THREE.Mesh(bodyGeometry, rickshawBodyMaterial);
-  bodyMesh.name = "RickshawBody";
-  
-  const playerWheelRadius = 0.35 * vehicleScaleFactor; 
-  const playerWheelThickness = 0.15 * vehicleScaleFactor; 
-  const playerWheelYPosition = playerWheelRadius; 
-  const playerWheelSegments = 16; 
-
-  bodyMesh.position.y = playerWheelYPosition + (bodyHeight / 2) - (0.1 * vehicleScaleFactor); 
-  playerGroup.add(bodyMesh);
-
-  const cabinWidth = bodyWidth * 0.95, 
-        cabinHeight = 0.6 * vehicleScaleFactor, 
-        cabinLength = bodyLength * 0.55;
-  const cabinGeometry = new THREE.BoxGeometry(cabinWidth, cabinHeight, cabinLength);
-  const cabinMesh = new THREE.Mesh(cabinGeometry, rickshawCabinMaterial);
-  cabinMesh.position.y = bodyMesh.position.y + bodyHeight / 2 + cabinHeight / 2 - (0.05 * vehicleScaleFactor);
-  cabinMesh.position.z = -bodyLength * 0.2;
-  playerGroup.add(cabinMesh);
-
-  const seatWidth = cabinWidth * 0.9, 
-        seatHeight = 0.1 * vehicleScaleFactor, 
-        seatDepth = bodyLength * 0.4;
-  const seatGeometry = new THREE.BoxGeometry(seatWidth, seatHeight, seatDepth);
-  const seatMesh = new THREE.Mesh(seatGeometry, seatMaterial);
-  seatMesh.position.y = bodyMesh.position.y - bodyHeight/2 + seatHeight/2 + (0.1 * vehicleScaleFactor); 
-  seatMesh.position.z = cabinMesh.position.z + cabinLength/2 - seatDepth/2 - (0.1 * vehicleScaleFactor);
-  playerGroup.add(seatMesh);
-
-  const frontCabinWidth = cabinWidth * 0.8, 
-        frontCabinHeight = cabinHeight * 0.7, 
-        frontCabinDepth = 0.3 * vehicleScaleFactor;
-  const frontCabinGeometry = new THREE.BoxGeometry(frontCabinWidth, frontCabinHeight, frontCabinDepth);
-  const frontCabinMesh = new THREE.Mesh(frontCabinGeometry, rickshawCabinMaterial);
-  frontCabinMesh.position.y = bodyMesh.position.y + bodyHeight/2 + frontCabinHeight/2 - (0.1 * vehicleScaleFactor);
-  frontCabinMesh.position.z = bodyMesh.position.z + bodyLength/2 - frontCabinDepth/2 - (0.2 * vehicleScaleFactor);
-  playerGroup.add(frontCabinMesh);
-  
-  const handlebarHeight = 0.5 * vehicleScaleFactor, 
-        handlebarRadius = 0.05 * vehicleScaleFactor;
-  const handlebarGeometry = new THREE.CylinderGeometry(handlebarRadius, handlebarRadius, handlebarHeight, 8);
-  const handlebarMesh = new THREE.Mesh(handlebarGeometry, metalMaterial);
-  handlebarMesh.position.y = bodyMesh.position.y + bodyHeight/2 + (0.1 * vehicleScaleFactor);
-  handlebarMesh.position.z = frontCabinMesh.position.z + frontCabinDepth/2 + (0.15 * vehicleScaleFactor);
-  handlebarMesh.rotation.x = Math.PI / 4;
-  playerGroup.add(handlebarMesh);
-
-  const playerHeadlightRadius = 0.15 * vehicleScaleFactor, 
-        playerHeadlightDepth = 0.1 * vehicleScaleFactor;
-  const headlightGeometry = new THREE.CylinderGeometry(playerHeadlightRadius, playerHeadlightRadius * 0.8, playerHeadlightDepth, 16);
-  const headlightMesh = new THREE.Mesh(headlightGeometry, headlightMaterial);
-  headlightMesh.position.y = bodyMesh.position.y + bodyHeight / 2 - playerHeadlightRadius / 2 + (0.1 * vehicleScaleFactor);
-  headlightMesh.position.z = bodyMesh.position.z + bodyLength / 2 + playerHeadlightDepth / 2;
-  headlightMesh.rotation.x = Math.PI / 2; 
-  playerGroup.add(headlightMesh);
-
-  const blWheelGeometry = new THREE.CylinderGeometry(playerWheelRadius, playerWheelRadius, playerWheelThickness, playerWheelSegments);
-  const blWheelMesh = new THREE.Mesh(blWheelGeometry, wheelMaterial);
-  blWheelMesh.rotation.z = Math.PI / 2; 
-  blWheelMesh.position.set(-bodyWidth/2 - playerWheelThickness/2 + (0.05 * vehicleScaleFactor), playerWheelYPosition, -bodyLength/2 + playerWheelRadius + (0.2 * vehicleScaleFactor));
-  playerGroup.add(blWheelMesh);
-
-  const brWheelGeometry = new THREE.CylinderGeometry(playerWheelRadius, playerWheelRadius, playerWheelThickness, playerWheelSegments);
-  const brWheelMesh = new THREE.Mesh(brWheelGeometry, wheelMaterial);
-  brWheelMesh.rotation.z = Math.PI / 2; 
-  brWheelMesh.position.set(bodyWidth/2 + playerWheelThickness/2 - (0.05 * vehicleScaleFactor), playerWheelYPosition, -bodyLength/2 + playerWheelRadius + (0.2 * vehicleScaleFactor));
-  playerGroup.add(brWheelMesh);
-
-  const fWheelGeometry = new THREE.CylinderGeometry(playerWheelRadius, playerWheelRadius, playerWheelThickness, playerWheelSegments);
-  const fWheelMesh = new THREE.Mesh(fWheelGeometry, wheelMaterial);
-  fWheelMesh.rotation.z = Math.PI / 2; 
-  fWheelMesh.position.set(0, playerWheelYPosition, bodyLength/2 - playerWheelRadius + (0.1 * vehicleScaleFactor));
-  playerGroup.add(fWheelMesh);
-  --- End of commented out geometric rickshaw --- */
-
-  // Load Rickshaw GLTF Model
-  const loader = new THREE.GLTFLoader();
-  loader.load(
-    'models/rickshaw/scene.gltf',
-    function (gltf) {
-      console.log("Raw GLTF data loaded:", gltf);
-      const model = gltf.scene;
-      console.log("GLTF Scene object (before transforms):", model);
-
-      // Optional: Traverse to set properties like shadows, if needed later
-      // model.traverse(function (child) {
-      //   if (child.isMesh) {
-      //     child.castShadow = true;
-      //     child.receiveShadow = true;
-      //   }
-      // });
-
-      // --- Scaling ---
-      const desiredHeight = 1.5 * vehicleScaleFactor; 
-      const initialBox = new THREE.Box3().setFromObject(model);
-      const initialSize = new THREE.Vector3();
-      initialBox.getSize(initialSize);
-      console.log("Initial model size (before scaling):", initialSize);
-
-      let scale = 1.0;
-      if (initialSize.y > 0.0001) { // Avoid division by zero/infinity
-        scale = desiredHeight / initialSize.y;
-      } else {
-        console.warn("Model initial height is zero or very small! Using default scale for height based on desiredHeight.");
-        scale = desiredHeight / 1.0; // Assume a nominal initial height of 1 if actual is unusable
-      }
-      model.scale.set(scale, scale, scale);
-      console.log("Applied scale factor:", scale);
-
-      // --- Positioning & Centering ---
-      // After scaling, get the new bounding box for centering and final positioning
-      const scaledBox = new THREE.Box3().setFromObject(model);
-      const scaledSize = new THREE.Vector3();
-      scaledBox.getSize(scaledSize);
-      console.log("Scaled model size (used for positioning and width):", scaledSize.x, scaledSize.y, scaledSize.z);
-
-      // Set playerRickshawScaledBodyWidth using the correctly calculated scaledSize.x
-      if (scaledSize.x > 0.0001 && !isNaN(scaledSize.x)) {
-          playerRickshawScaledBodyWidth = scaledSize.x;
-      } else {
-          playerRickshawScaledBodyWidth = 1.8; // Fallback width
-          console.warn(`Scaled model width (scaledSize.x: ${scaledSize.x}) is invalid or zero. Using fallback width: ${playerRickshawScaledBodyWidth}`);
-      }
-      console.log('Rickshaw model scaled. Collision width set to:', playerRickshawScaledBodyWidth);
-
-      const center = new THREE.Vector3();
-      scaledBox.getCenter(center); // Get center of the scaled bounding box
-      
-      // Apply offsets to the model's position to effectively move its geometric center to its own origin (0,0,0)
-      model.position.x -= center.x;
-      model.position.y -= center.y;
-      model.position.z -= center.z;
-      
-      // Now that the model's geometry is centered around its local origin,
-      // its new lowest point in its own Y-axis is at -scaledSize.y / 2.
-      // We want to lift it so this lowest point is at groundClearance.
-      const groundClearance = 0.05 * vehicleScaleFactor; // Small clearance
-      model.position.y += (scaledSize.y / 2) + groundClearance;
-      console.log("Final model local position set to:", model.position);
-
-      // Clear previous player group children (e.g., old geometric parts) and add the new model
-      while(playerGroup.children.length > 0){ 
-        playerGroup.remove(playerGroup.children[0]); 
-      }
-      playerGroup.add(model); 
-      console.log("Model children:", model.children);
-      if (model.children.length > 0) {
-        console.log("First child of model - Name:", model.children[0].name, "Type:", model.children[0].type);
-      }
-      // DEBUG: Log final model and playerGroup scale and positions
-      console.log("DEBUG: Loaded Model - Local Scale:", model.scale.x, model.scale.y, model.scale.z);
-      console.log("DEBUG: Loaded Model - Local Position (in playerGroup):", model.position.x.toFixed(2), model.position.y.toFixed(2), model.position.z.toFixed(2));
-      console.log("DEBUG: PlayerGroup - World Position:", playerGroup.position.x.toFixed(2), playerGroup.position.y.toFixed(2), playerGroup.position.z.toFixed(2));
-      const worldPos = new THREE.Vector3();
-      model.getWorldPosition(worldPos);
-      console.log("DEBUG: Loaded Model - World Position:", worldPos.x.toFixed(2), worldPos.y.toFixed(2), worldPos.z.toFixed(2));
-
-      // Traverse and log details of the model's children
-      console.log("DEBUG: Traversing loaded model children:");
-      model.traverse(function(child) {
-        let childInfo = `  - Name: ${child.name || 'N/A'}, Type: ${child.type}, Visible: ${child.visible}`;
-        if (child.isMesh) {
-          childInfo += `, Material: ${child.material ? child.material.type : 'N/A'}`;
-          if (child.material && child.material.map) childInfo += `, Texture: ${child.material.map.name || 'Exists'}`;
-        }
-        console.log(childInfo);
-      });
-
-    },
-    undefined, // onProgress callback (optional)
-    function (error) {
-      console.error('An error happened loading the rickshaw model:', error);
-      // Consider re-enabling geometric player as a fallback here if needed
-    }
-  );
-
-  playerGroup.position.set(0, 0, 3); 
-  
   animate(); // Start the 3D animation loop
 }
 
-function animate() {
-  requestAnimationFrame(animate);
+function loadGLTFModel() {
+    const loader = new THREE.GLTFLoader();
+    loader.setPath('models/rickshaw/');
+    loader.load('scene.gltf', function (gltf) {
+        console.log('Raw GLTF data loaded:', gltf);
+        const model = gltf.scene;
+        console.log('GLTF Scene object (before transforms):', model);
 
-  // DEBUG: Log positions
-  if (camera) console.log("DEBUG: Camera Position:", camera.position.x.toFixed(2), camera.position.y.toFixed(2), camera.position.z.toFixed(2));
-  if (playerGroup) console.log("DEBUG: PlayerGroup Position:", playerGroup.position.x.toFixed(2), playerGroup.position.y.toFixed(2), playerGroup.position.z.toFixed(2));
-  if (testCube) console.log("DEBUG: TestCube Position:", testCube.position.x.toFixed(2), testCube.position.y.toFixed(2), testCube.position.z.toFixed(2));
+        model.updateMatrixWorld(true); 
+
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        console.log('Initial model size (before scaling):', size.x, size.y, size.z);
+
+        let scaleFactor;
+        if (size.y === 0 || Math.abs(size.y) < 0.0001) {
+            console.warn('Model initial height is zero or near-zero. Defaulting scaleFactor to 1.');
+            scaleFactor = 1;
+        } else {
+            scaleFactor = desiredRickshawHeight / size.y;
+        }
+        console.log('Calculated scale factor:', scaleFactor);
+        
+        if (isNaN(scaleFactor) || !isFinite(scaleFactor)) {
+            console.warn('Scale factor is NaN or infinite. Defaulting to 1.');
+            scaleFactor = 1;
+        }
+
+        model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        model.updateMatrixWorld(true); 
+
+        const scaledBox = new THREE.Box3().setFromObject(model);
+        const scaledSize = scaledBox.getSize(new THREE.Vector3());
+        console.log('Scaled model size (used for positioning and width):', scaledSize.x, scaledSize.y, scaledSize.z);
+
+        playerRickshawScaledBodyWidth = scaledSize.x;
+        if (isNaN(playerRickshawScaledBodyWidth) || playerRickshawScaledBodyWidth <= 0) {
+            console.warn("playerRickshawScaledBodyWidth is NaN or zero/negative after scaling. Defaulting to 1.8.");
+            playerRickshawScaledBodyWidth = 1.8; 
+        }
+        console.log('Rickshaw model scaled. Collision width set to:', playerRickshawScaledBodyWidth);
+
+        const center = scaledBox.getCenter(new THREE.Vector3());
+        console.log('Scaled model center (before offsetting):', center.x, center.y, center.z);
+
+        if (isNaN(center.x) || isNaN(center.y) || isNaN(center.z)) {
+            console.warn("Model center coordinates are NaN. Defaulting center offset to (0,0,0).");
+            center.set(0,0,0);
+        }
+
+        model.position.sub(center); 
+        model.position.y += scaledSize.y / 2; 
+        
+        model.updateMatrixWorld(true);
+
+        console.log('Final model local position (relative to playerGroup, after centering and Y adjustment):', model.position.x, model.position.y, model.position.z);
+        
+        if (!playerGroup) {
+            console.error("playerGroup is not initialized before loading model! This should not happen.");
+            playerGroup = new THREE.Group(); 
+        }
+        
+        while(playerGroup.children.length > 0){
+            playerGroup.remove(playerGroup.children[0]);
+        }
+        playerGroup.add(model);
+        
+        playerGroup.position.set(0, 0, 3); 
+        scene.add(playerGroup); 
+        
+        // Ensure playerGroup's matrix is updated before logging its position
+        playerGroup.updateMatrixWorld(true); 
+        console.log('DEBUG LoadCB: playerGroup.position after model add & transform:', playerGroup.position.x.toFixed(2), playerGroup.position.y.toFixed(2), playerGroup.position.z.toFixed(2));
+        
+        const playerGroupWorldPos = new THREE.Vector3();
+        playerGroup.getWorldPosition(playerGroupWorldPos); 
+        console.log('DEBUG LoadCB: playerGroup.getWorldPosition():', playerGroupWorldPos.x.toFixed(2), playerGroupWorldPos.y.toFixed(2), playerGroupWorldPos.z.toFixed(2));
+        
+        // Ensure model's world matrix is updated after being added to group and group is positioned
+        model.updateMatrixWorld(true); 
+        const finalModelWorldPos = new THREE.Vector3();
+        model.getWorldPosition(finalModelWorldPos);
+        console.log('DEBUG LoadCB: Loaded Model - World Position (after adding to group):', finalModelWorldPos.x.toFixed(2), finalModelWorldPos.y.toFixed(2), finalModelWorldPos.z.toFixed(2));
+
+        console.log('DEBUG LoadCB: Traversing loaded model children:');
+        model.traverse(function (child) {
+            let logMsg = `  - Name: ${child.name || 'N/A'}, Type: ${child.type}, Visible: ${child.visible}`;
+            if (child.isMesh) {
+                logMsg += `, Material: ${child.material ? child.material.type : 'N/A'}`;
+                if (child.material && child.material.map) {
+                    logMsg += `, Texture: ${child.material.map.name || 'Exists'}`;
+                } else {
+                    logMsg += `, Texture: None`;
+                }
+            }
+            console.log(logMsg);
+        });
+         console.log("Player model loaded and added to scene. isPlayerModelLoaded = true");
+         isPlayerModelLoaded = true;
+
+    }, undefined, function (error) {
+        console.error('An error happened during GLTF loading:', error);
+        isPlayerModelLoaded = false; 
+    });
+}
+
+function animate() {
+  if (gameOver) return;
+
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+
+  // Update road texture offset for scrolling effect
+  if (groundMaterial && groundMaterial.map) {
+    if (!groundMaterial.map.offset) groundMaterial.map.offset = new THREE.Vector2();
+    groundMaterial.map.offset.y -= roadScrollSpeed * delta * 10; 
+  }
+
+  // Player movement
+  const movementSpeed = 5; 
+  if (playerGroup && isPlayerModelLoaded) { 
+    if (leftPressed) {
+      playerGroup.position.x -= movementSpeed * delta;
+    }
+    if (rightPressed) {
+      playerGroup.position.x += movementSpeed * delta;
+    }
+
+    const halfPlayerWidth = playerRickshawScaledBodyWidth / 2;
+    const laneBoundary = roadWidth / 2 - halfPlayerWidth - 0.1; 
+    playerGroup.position.x = Math.max(-laneBoundary, Math.min(laneBoundary, playerGroup.position.x));
+    
+    playerGroup.updateMatrixWorld(true); // Important for consistent position data
+  }
+
+  // Obstacle/Scenery/Collision (Still disabled for model visibility debugging)
+  // ...
 
   if (!gameOver) {
-    score++; 
+    score += delta * 10; 
     updateScoreDisplay();
-    currentObstacleSpeed = Math.min(maxObstacleSpeed, initialObstacleSpeed + (score / 5000));
-    currentObstacleSpawnInterval = Math.max(minObstacleSpawnInterval, initialObstacleSpawnInterval - Math.floor(score / 1000) * 5);
-
-    // Player Movement & Boundary
-    if (playerGroup && groundMesh) {
-      const moveSpeed = 0.15; // This might need adjustment if player feels too slow/fast due to scale
-      if (leftPressed) playerGroup.position.x -= moveSpeed;
-      if (rightPressed) playerGroup.position.x += moveSpeed;
-      const playerEffectiveBodyWidth = playerRickshawScaledBodyWidth; // Use the new global variable
-      const playerHalfEffectiveWidth = playerEffectiveBodyWidth / 2;
-      const roadBoundary = groundMesh.geometry.parameters.width / 2 - playerHalfEffectiveWidth;
-      playerGroup.position.x = Math.max(-roadBoundary, Math.min(roadBoundary, playerGroup.position.x));
-    }
-
-    // Road Texture Scrolling
-    if (groundMesh && groundMesh.material && groundMesh.material.map) {
-      groundMesh.material.map.offset.y -= roadScrollSpeed;
-    }
-
-    // Scenery Spawning
-    scenerySpawnTimer++;
-    if (scenerySpawnTimer > scenerySpawnInterval) {
-        // spawnSceneryObject(); // DEBUG: Temporarily disable
-        scenerySpawnTimer = 0;
-    }
-
-    // Scenery Movement & Despawning
-    const sceneryZSpeed = currentObstacleSpeed * scenerySpeedFactor; 
-    for (let i = sceneryObjects.length - 1; i >= 0; i--) {
-        const scenery = sceneryObjects[i];
-        scenery.position.z += sceneryZSpeed; 
-        if (scenery.position.z > camera.position.z + 30) { 
-            scene.remove(scenery);
-            sceneryObjects.splice(i, 1);
-        }
-    }
-
-    // Obstacle Spawning
-    obstacleSpawnTimer++;
-    if (obstacleSpawnTimer > currentObstacleSpawnInterval) {
-      // spawnObstacle(); // DEBUG: Temporarily disable
-      obstacleSpawnTimer = 0;
-    }
-
-    // Obstacle Movement, Despawning & Collision Detection
-    const playerBox = new THREE.Box3();
-    if (playerGroup) {
-        playerGroup.updateMatrixWorld(true); // Ensure matrix is up-to-date
-        playerBox.setFromObject(playerGroup);
-    }
-    for (let i = obstacles.length - 1; i >= 0; i--) {
-      const obstacle = obstacles[i];
-      obstacle.position.z += currentObstacleSpeed;
-      if (obstacle.position.z > camera.position.z + 20) {
-        scene.remove(obstacle);
-        obstacles.splice(i, 1);
-        continue;
-      }
-      if (playerGroup) { // Check playerGroup again, in case it becomes null
-        obstacle.updateMatrixWorld(true); // Ensure obstacle matrix is up-to-date
-        const obstacleBox = new THREE.Box3().setFromObject(obstacle);
-        if (playerBox.intersectsBox(obstacleBox)) {
-          triggerGameOver();
-          break; 
-        }
-      }
-    }
-  } 
-
-  // Camera Follow Logic
-  // DEBUG: Temporarily disable dynamic camera movement
-  /*
-  if (playerGroup) {
-    const targetCameraX = playerGroup.position.x;
-    camera.position.x += (targetCameraX - camera.position.x) * cameraFollowSpeed;
-    const lookAtPosition = new THREE.Vector3(playerGroup.position.x, playerGroup.position.y + 1.5, playerGroup.position.z); // Look at player, slightly higher Y for better view
-    camera.lookAt(lookAtPosition);
+    // updateDifficulty(); 
   }
-  */
-  // DEBUG: Keep camera looking at origin
-  if (camera) camera.lookAt(0,0,0);
 
+  // Fixed camera for debugging model visibility
+  camera.position.set(0, 5, 15); 
+  camera.lookAt(0, 0, 0); 
+
+  // Simplified Debug Logs for animate loop
+  if (isPlayerModelLoaded && playerGroup && playerGroup.position) {
+    const pgPos = playerGroup.position;
+    console.log(`DEBUG Anim: PlayerGroup XYZ: ${pgPos.x.toFixed(2)}, ${pgPos.y.toFixed(2)}, ${pgPos.z.toFixed(2)}`);
+  } else if (!isPlayerModelLoaded) {
+    // console.log('DEBUG Anim: Waiting for player model...'); // Optional: can be spammy
+  }
+
+  if (testCube && testCube.position){ // Log test cube if it exists
+    const tcPos = testCube.position;
+    // console.log(`DEBUG Anim: TestCube XYZ: ${tcPos.x.toFixed(2)}, ${tcPos.y.toFixed(2)}, ${tcPos.z.toFixed(2)}`); // Optional: can be spammy
+  }
+  
   renderer.render(scene, camera);
 }
 
@@ -993,7 +873,7 @@ function spawnSceneryObject() {
     let sceneryGroup = new THREE.Group(); // Use a group for all scenery types for consistency
 
     const side = Math.random() < 0.5 ? -1 : 1; // -1 for left, 1 for right
-    const lateralOffset = groundMesh.geometry.parameters.width / 2 + 5 + Math.random() * 10; // Spawn 5-15 units away from road edge
+    const lateralOffset = roadWidth / 2 + 5 + Math.random() * 10; // Spawn 5-15 units away from road edge
     const spawnZ = -150; // Spawn further back than obstacles
 
     if (objectType < 0.33) { // Type 1: Pole with Light
