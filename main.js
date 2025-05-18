@@ -1,467 +1,734 @@
-window.onerror = function(message, source, lineno, colno, error) {
-  if (typeof message === 'string' && message.includes('Access to storage is not allowed')) return true;
-  if (typeof message === 'string' && message.includes('Unknown response id')) return true;
-  return false; // Let other errors through
-};
-window.onload = function() {
-// --- Texture loading (must be global and first) ---
-const textures = {
-  grass: new Image(),
-  dirt: new Image(),
-  stone: new Image(),
-  car: new Image(),
-  truck: new Image()
-};
-textures.grass.src = 'textures/grass.png';
-textures.dirt.src = 'textures/dirt.png';
-textures.stone.src = 'textures/stone.png';
-textures.car.src = 'sprites/car.png';
-textures.truck.src = 'sprites/truck.png';
+// window.onerror = function(message, source, lineno, colno, error) {
+//   if (typeof message === 'string' && message.includes('Access to storage is not allowed')) return true;
+//   if (typeof message === 'string' && message.includes('Unknown response id')) return true;
+//   return false; // Let other errors through
+// };
 
-// --- Game Constants ---
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const w = canvas.width, h = canvas.height;
-let roadScroll = 0;
-
-// --- Particle System ---
-let particles = [];
-function spawnParticle(x, y, color, vx, vy, life, size=3) {
-  particles.push({x, y, color, vx, vy, life, size});
-}
-function updateParticles(dt) {
-  for (let p of particles) {
-    p.x += p.vx * dt * 60;
-    p.y += p.vy * dt * 60;
-    p.life -= dt;
-  }
-  particles = particles.filter(p => p.life > 0);
-}
-function drawParticles() {
-  for (let p of particles) {
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, p.life/0.6);
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, 2*Math.PI);
-    ctx.fill();
-    ctx.restore();
-  }
-}
-
-// --- Fade-in overlay ---
-let fadeAlpha = 1, fadeDir = -1; // -1: fade in, 1: fade out
-function drawFade() {
-  if (fadeAlpha > 0) {
-    ctx.save();
-    ctx.globalAlpha = fadeAlpha;
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, w, h);
-    ctx.restore();
-  }
-}
-
-
-// --- Starfield ---
-function drawStarfield() {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, w, h);
-  // Starfield: static, no sparkle or twinkle
-  for (let i = 0; i < 24; i++) {
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(Math.floor((i*53)%w), Math.floor((i*191)%h), 2, 2);
-  }
-}
-
-// --- Headlight effect ---
-function drawHeadlights() {
-  // Headlight cone effect (no vertical lines, just a gradient cone)
-  ctx.save();
-  ctx.globalAlpha = 0.45;
-  ctx.beginPath();
-  ctx.moveTo(player.x, player.y-30);
-  ctx.arc(player.x, player.y-120, 120, Math.PI*0.88, Math.PI*0.12, false);
-  ctx.lineTo(player.x, player.y-30);
-  ctx.closePath();
-  var gradient = ctx.createRadialGradient(player.x, player.y-30, 10, player.x, player.y-120, 120);
-  gradient.addColorStop(0, 'rgba(255,255,200,0.6)');
-  gradient.addColorStop(1, 'rgba(255,255,200,0.0)');
-  ctx.fillStyle = gradient;
-  ctx.fill();
-  ctx.restore();
-} // No vertical lines, only cone gradient
-
-// --- Near-miss shake ---
-// Removed shake and near-miss sparkle effect: no vibration, no particles, no visual feedback for near-miss.
-
-
-// --- Game State ---
-const NUM_LANES = 3;
-const roadLeft = Math.round(w * 0.10);
-const roadRight = Math.round(w * 0.90);
-const laneWidth = Math.round((roadRight - roadLeft) / 3);
-const laneCenters = [
-  Math.round(roadLeft + laneWidth/2),
-  Math.round(roadLeft + laneWidth/2 + laneWidth),
-  Math.round(roadLeft + laneWidth/2 + 2*laneWidth)
-];
-let player = { x: laneCenters[1], y: Math.round(h * 0.65), width: 44, height: 74, speed: 22, color: '#0ff' }; // Centered player, increased speed
-let obstacles = [], obstacleTimer = 0, obstacleInterval = 120, minInterval = 38; // Increased difficulty: obstacles appear more frequently
-let distance = 0, score = 0, scoreMultiplier = 1;
-let speedMultiplier = 1;
-let gameOver = false;
-let paused = false; // Pause state
-
-// --- Input State ---
+let scene, camera, renderer;
+let playerGroup, groundMesh;
+// Keep input state global for now
 let leftPressed = false, rightPressed = false;
-window.addEventListener('keydown', e => {
-  if (e.key === 'a' || e.key === 'ArrowLeft') leftPressed = true;
-  if (e.key === 'd' || e.key === 'ArrowRight') rightPressed = true;
-  if (e.key === 'p' || e.key === 'P') paused = !paused;
-  if (gameOver && (e.key === ' ' || e.key === 'Enter')) restartGame();
-});
-window.addEventListener('keyup', e => {
-  if (e.key === 'a' || e.key === 'ArrowLeft') leftPressed = false;
-  if (e.key === 'd' || e.key === 'ArrowRight') rightPressed = false;
-});
-document.getElementById('leftBtn').addEventListener('touchstart', e => { leftPressed = true; e.preventDefault(); });
-document.getElementById('leftBtn').addEventListener('touchend', e => { leftPressed = false; e.preventDefault(); });
-document.getElementById('leftBtn').addEventListener('mousedown', e => { leftPressed = true; });
-document.getElementById('leftBtn').addEventListener('mouseup', e => { leftPressed = false; });
-document.getElementById('leftBtn').addEventListener('mouseleave', e => { leftPressed = false; });
-document.getElementById('rightBtn').addEventListener('touchstart', e => { rightPressed = true; e.preventDefault(); });
-document.getElementById('rightBtn').addEventListener('touchend', e => { rightPressed = false; e.preventDefault(); });
-document.getElementById('rightBtn').addEventListener('mousedown', e => { rightPressed = true; });
-document.getElementById('rightBtn').addEventListener('mouseup', e => { rightPressed = false; });
-document.getElementById('rightBtn').addEventListener('mouseleave', e => { rightPressed = false; });
+let textureLoader; // Declare textureLoader globally or pass it around
+const roadScrollSpeed = 0.02; // Adjusted scroll speed
 
-// --- Player movement bounds ---
-function clampPlayerX(x) {
-  // Player can move fully within the road, not just lanes
-  const minX = roadLeft + player.width/2;
-  const maxX = roadRight - player.width/2;
-  return Math.max(minX, Math.min(maxX, x));
-}
+let obstacles = [];
+const initialObstacleSpeed = 0.3; // Slightly reduced initial speed
+let currentObstacleSpeed = initialObstacleSpeed;
+const maxObstacleSpeed = 1.0; // Cap for obstacle speed
 
+let obstacleSpawnTimer = 0;
+const initialObstacleSpawnInterval = 120; // Approx 2 seconds at 60fps
+let currentObstacleSpawnInterval = initialObstacleSpawnInterval;
+const minObstacleSpawnInterval = 45; // Minimum interval (approx 0.75 seconds)
 
-function restartGame() {
-  player.x = laneCenters[1]; // center lane
-  player.y = Math.round(h * 0.65); // more vertically centered
-  distance = 0;
-  score = 0;
-  obstacles = [];
-  particles = []; // Clear particles to prevent stray dots
-  gameOver = false;
-  obstacleInterval = 180;
-  obstacleTimer = obstacleInterval;
-  leftPressed = rightPressed = false;
-  // Removed shake reset (feature removed)
+const laneWidth = 10; // Ground width is 30, so 3 lanes of 10
+const lanePositions = [-laneWidth, 0, laneWidth]; // X-coordinates for center of lanes
 
-  document.getElementById('gameOverScreen').style.display = 'none';
-  document.getElementById('finalScore').textContent = '0';
-  var scoreElem = document.getElementById('score');
-  if (scoreElem) scoreElem.textContent = '0 m';
-  gameStartTime = Date.now(); // reset spawn timer
-  lastTime = performance.now();
-  requestAnimationFrame(loop);
-}
-document.getElementById('restartBtn').onclick = restartGame;
+let gameOver = false; // Add game over state
+let score = 0;
+let scoreDisplay, finalScoreDisplay, gameOverScreen, restartBtn;
+const cameraFollowSpeed = 0.05; // Smoothing factor for camera movement
 
-function drawRoad() {
-  ctx.save();
-  // Widen the road for better visibility
-  ctx.fillStyle = '#888'; // Road grey
-  const roadLeft = Math.round(w * 0.10);
-  const roadRight = Math.round(w * 0.90);
-  ctx.fillRect(roadLeft, 0, roadRight - roadLeft, h);
-  // Lane markings (animated)
-  ctx.fillStyle = '#fff';
-  let laneWidth = Math.round((roadRight - roadLeft) / 3);
-  for (let i = 1; i < 3; i++) {
-    let x = Math.round(roadLeft + i * laneWidth);
-    for (let y = (roadScroll % 32) - 32; y < h; y += 32) ctx.fillRect(x - 2, y, 4, 20);
-  }
-  // Road edge lines
-  ctx.fillStyle = '#222';
-  ctx.fillRect(roadLeft - 4, 0, 4, h);
-  ctx.fillRect(roadRight, 0, 4, h);
-  // Roadside scenery
-  for (let i = 0; i < 4; i++) {
-    let y = (roadScroll * 0.7 + i * 160) % h;
-    // Left side
-    drawScenery(roadLeft-24, y);
-    // Right side
-    drawScenery(roadRight+8, (y+80)%h);
-  }
-  ctx.restore();
-}
+window.onload = function() {
+  // Initialize Three.js Environment First
+  initThreeJS();
 
-function drawScenery(x, y) {
-  // Randomly pick a type based on y
-  let type = Math.floor((y/80)%3);
-  ctx.save();
-  ctx.translate(x, y+28); // 28px down so base sits on road edge
-  // Draw larger, darker oval shadow/ground patch
-  ctx.save();
-  ctx.globalAlpha = 0.45;
-  ctx.fillStyle = '#181818';
-  ctx.beginPath(); ctx.ellipse(0, 0, 20, 9, 0, 0, 2*Math.PI); ctx.fill();
-  ctx.restore();
-  if (type === 0) {
-    // Tree
-    ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.arc(0,-18,13,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#8d5524'; ctx.fillRect(-2, -8, 4, 16);
-  } else if (type === 1) {
-    // Lamp post
-    ctx.fillStyle = '#bbb'; ctx.fillRect(-2, -24, 4, 24);
-    ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(0,-28,5,0,Math.PI*2); ctx.fill();
-    // Lamp glow
-    ctx.save();
-    ctx.globalAlpha = 0.13;
-    ctx.beginPath(); ctx.ellipse(0, -12, 19, 11, 0, 0, 2*Math.PI); ctx.fillStyle = '#ffe066'; ctx.fill();
-    ctx.restore();
-  } else {
-    // Sign
-    ctx.fillStyle = '#fff'; ctx.fillRect(-7,-20,14,14);
-    ctx.fillStyle = '#f00'; ctx.fillRect(-3,-16,6,6);
-  }
-  ctx.restore();
-} // No jitter, no vibration
+  // Initialize TextureLoader here as THREE is now defined
+  textureLoader = new THREE.TextureLoader();
 
-function drawPlayer() {
-  ctx.save();
-  ctx.translate(Math.round(player.x), Math.round(player.y));
-  // --- Enlarged Black & Yellow Rickshaw ---
-  // Main body (yellow)
-  ctx.fillStyle = '#FFD600';
-  ctx.fillRect(-18, -18, 36, 28);
-  // Roof (black)
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-18, -28, 36, 12);
-  // Lower body fill (yellow, connects skirt to wheels)
-  ctx.fillStyle = '#FFD600';
-  ctx.fillRect(-13, 13, 26, 12);
-  // Lower skirt (black)
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-18, 8, 36, 5);
-  // Rear wheels (black, pixel rectangles)
-  ctx.fillRect(-13, 15, 6, 10); // left wheel
-  ctx.fillRect(7, 15, 6, 10); // right wheel
-  // Divider stripe (dark gray)
-  ctx.fillStyle = '#444';
-  ctx.fillRect(-18, -5, 36, 4);
-  // Side pillars (black)
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-18, -18, 4, 22);
-  ctx.fillRect(14, -18, 4, 22);
-  // Headlight (dark gray, rectangular, protruding)
-  ctx.fillStyle = '#444';
-  ctx.fillRect(-4, -32, 8, 9);
-  // Seat (dark gray)
-  ctx.fillStyle = '#444';
-  ctx.fillRect(-8, -6, 16, 7);
-  // Front grill (black)
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-5, 8, 10, 3);
-  // Front wheel (dark gray, extended down)
-  ctx.fillStyle = '#444';
-  ctx.fillRect(-2, 11, 4, 13);
-  // Rear bumper (black)
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-10, 23, 20, 3);
-  ctx.restore();
-}
+  // Load the road texture after initThreeJS so groundMesh exists
+  loadRoadTexture();
 
-function drawObstacle(obs) {
-  ctx.save();
-  ctx.translate(Math.round(obs.x), Math.round(obs.y));
-  // Draw pixel art truck sprite if loaded, else fallback
-  if (textures.truck.complete && textures.truck.naturalWidth) {
-    ctx.drawImage(textures.truck, -obs.width/2, -obs.height/2, obs.width, obs.height);
-  } else {
-    // Fallback: rectangle
-    ctx.strokeStyle = '#ffe066';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(-24, -44, 48, 88); // outline
-    ctx.fillStyle = obs.color || '#b97a57';
-    ctx.fillRect(-22, -42, 44, 84);
-    ctx.fillStyle = '#cfcfcf';
-    ctx.fillRect(-16, -42, 32, 28);
-    ctx.fillStyle = '#888';
-    ctx.fillRect(-10, -42, 20, 7);
-    ctx.fillStyle = '#ffe066';
-    ctx.fillRect(-18, -44, 7, 7);
-    ctx.fillRect(11, -44, 7, 7);
-    if (obs.fast && Math.floor(Date.now()/200)%2 === 0) {
-      ctx.fillStyle = '#fff';
-    } else {
-      ctx.fillStyle = '#ff3c28';
+  // Cache UI elements
+  scoreDisplay = document.getElementById('score');
+  finalScoreDisplay = document.getElementById('finalScore');
+  gameOverScreen = document.getElementById('gameOverScreen');
+  restartBtn = document.getElementById('restartBtn');
+
+  // Event listeners for input (abbreviated for clarity, no changes here)
+  window.addEventListener('keydown', e => {
+      if (e.key === 'a' || e.key === 'ArrowLeft') leftPressed = true;
+      if (e.key === 'd' || e.key === 'ArrowRight') rightPressed = true;
+      if (gameOver && (e.key === ' ' || e.key === 'Enter')) restartGame(); // Allow restart with Space/Enter
+  });
+  window.addEventListener('keyup', e => {
+      if (e.key === 'a' || e.key === 'ArrowLeft') leftPressed = false;
+      if (e.key === 'd' || e.key === 'ArrowRight') rightPressed = false;
+  });
+  document.getElementById('leftBtn').addEventListener('touchstart', e => { leftPressed = true; e.preventDefault(); });
+  document.getElementById('leftBtn').addEventListener('touchend', e => { leftPressed = false; e.preventDefault(); });
+  document.getElementById('leftBtn').addEventListener('mousedown', e => { leftPressed = true; });
+  document.getElementById('leftBtn').addEventListener('mouseup', e => { leftPressed = false; });
+  document.getElementById('leftBtn').addEventListener('mouseleave', e => { leftPressed = false; });
+  document.getElementById('rightBtn').addEventListener('touchstart', e => { rightPressed = true; e.preventDefault(); });
+  document.getElementById('rightBtn').addEventListener('touchend', e => { rightPressed = false; e.preventDefault(); });
+  document.getElementById('rightBtn').addEventListener('mousedown', e => { rightPressed = true; });
+  document.getElementById('rightBtn').addEventListener('mouseup', e => { rightPressed = false; });
+  document.getElementById('rightBtn').addEventListener('mouseleave', e => { rightPressed = false; });
+
+  // Restart button listener
+  if(restartBtn) restartBtn.onclick = restartGame;
+  
+  // Initial UI update
+  updateScoreDisplay();
+
+  // --- Texture loading (2D - largely commented out) ---
+  // const textures = {
+  //   grass: new Image(),
+  //   dirt: new Image(),
+  //   stone: new Image(), // This one is now loaded via THREE.TextureLoader
+  //   car: new Image(),
+  //   truck: new Image()
+  // };
+  // textures.grass.src = 'textures/grass.png';
+  // textures.dirt.src = 'textures/dirt.png';
+  // // textures.stone.src = 'textures/stone.png'; // Handled by loadRoadTexture
+  // textures.car.src = 'sprites/car.png';
+  // textures.truck.src = 'sprites/truck.png';
+
+  // --- Game Constants (2D) ---
+  // const canvas = document.getElementById('gameCanvas');
+  // const ctx = canvas.getContext('2d');
+  // const w = canvas.width, h = canvas.height;
+  // let roadScroll = 0;
+
+  // --- Particle System (2D) ---
+  // let particles = [];
+  // function spawnParticle(x, y, color, vx, vy, life, size=3) {
+  //   particles.push({x, y, color, vx, vy, life, size});
+  // }
+  // function updateParticles(dt) {
+  //   for (let p of particles) {
+  //     p.x += p.vx * dt * 60;
+  //     p.y += p.vy * dt * 60;
+  //     p.life -= dt;
+  //   }
+  //   particles = particles.filter(p => p.life > 0);
+  // }
+  // function drawParticles() {
+  //   for (let p of particles) {
+  //     ctx.save();
+  //     ctx.globalAlpha = Math.max(0, p.life/0.6);
+  //     ctx.fillStyle = p.color;
+  //     ctx.beginPath();
+  //     ctx.arc(p.x, p.y, p.size, 0, 2*Math.PI);
+  //     ctx.fill();
+  //     ctx.restore();
+  //   }
+  // }
+
+  // --- Fade-in overlay (2D) ---
+  // let fadeAlpha = 1, fadeDir = -1;
+  // function drawFade() {
+  //   if (fadeAlpha > 0) {
+  //     ctx.save();
+  //     ctx.globalAlpha = fadeAlpha;
+  //     ctx.fillStyle = '#000';
+  //     ctx.fillRect(0, 0, w, h);
+  //     ctx.restore();
+  //   }
+  // }
+
+  // --- Starfield (2D) ---
+  // function drawStarfield() {
+  //   ctx.fillStyle = '#000';
+  //   ctx.fillRect(0, 0, w, h);
+  //   // Starfield: static, no sparkle or twinkle
+  //   for (let i = 0; i < 24; i++) {
+  //     ctx.fillStyle = '#fff';
+  //     ctx.fillRect(Math.floor((i*53)%w), Math.floor((i*191)%h), 2, 2);
+  //   }
+  // }
+
+  // --- Headlight effect (2D) ---
+  // function drawHeadlights() {
+  //   // Headlight cone effect (no vertical lines, just a gradient cone)
+  //   ctx.save();
+  //   ctx.globalAlpha = 0.45;
+  //   ctx.beginPath();
+  //   ctx.moveTo(player.x, player.y-30);
+  //   ctx.arc(player.x, player.y-120, 120, Math.PI*0.88, Math.PI*0.12, false);
+  //   ctx.lineTo(player.x, player.y-30);
+  //   ctx.closePath();
+  //   var gradient = ctx.createRadialGradient(player.x, player.y-30, 10, player.x, player.y-120, 120);
+  //   gradient.addColorStop(0, 'rgba(255,255,200,0.6)');
+  //   gradient.addColorStop(1, 'rgba(255,255,200,0.0)');
+  //   ctx.fillStyle = gradient;
+  //   ctx.fill();
+  //   ctx.restore();
+  // } // No vertical lines, only cone gradient
+
+  // --- Near-miss shake (2D) ---
+  // Removed shake and near-miss sparkle effect: no vibration, no particles, no visual feedback for near-miss.
+
+  // --- Game State (2D elements largely commented out or to be adapted) ---
+  // const NUM_LANES = 3; // This might still be useful for 3D lane logic
+  // const roadLeft = Math.round(w * 0.10);
+  // const roadRight = Math.round(w * 0.90);
+  // const laneWidth = Math.round((roadRight - roadLeft) / 3);
+  // const laneCenters = [
+  //   Math.round(roadLeft + laneWidth/2),
+  //   Math.round(roadLeft + laneWidth/2 + laneWidth),
+  //   Math.round(roadLeft + laneWidth/2 + 2*laneWidth)
+  // ];
+  // let player = { x: laneCenters[1], y: Math.round(h * 0.65), width: 44, height: 74, speed: 22, color: '#0ff' }; // Centered player, increased speed
+  // let obstacles = [], obstacleTimer = 0, obstacleInterval = 120, minInterval = 38; // Increased difficulty: obstacles appear more frequently
+  // let distance = 0, score = 0, scoreMultiplier = 1;
+  // let speedMultiplier = 1;
+  // let gameOver = false;
+  // let paused = false; // Pause state
+
+  // --- Input State (Listeners are kept for 3D control) ---
+  // window.addEventListener('keydown', e => {
+  //   if (e.key === 'a' || e.key === 'ArrowLeft') leftPressed = true;
+  //   if (e.key === 'd' || e.key === 'ArrowRight') rightPressed = true;
+  //   // if (e.key === 'p' || e.key === 'P') paused = !paused; // Pause logic to be re-implemented for 3D
+  //   // if (gameOver && (e.key === ' ' || e.key === 'Enter')) restartGame(); // Restart logic to be re-implemented
+  // });
+  // window.addEventListener('keyup', e => {
+  //   if (e.key === 'a' || e.key === 'ArrowLeft') leftPressed = false;
+  //   if (e.key === 'd' || e.key === 'ArrowRight') rightPressed = false;
+  // });
+  // document.getElementById('leftBtn').addEventListener('touchstart', e => { leftPressed = true; e.preventDefault(); });
+  // document.getElementById('leftBtn').addEventListener('touchend', e => { leftPressed = false; e.preventDefault(); });
+  // document.getElementById('leftBtn').addEventListener('mousedown', e => { leftPressed = true; });
+  // document.getElementById('leftBtn').addEventListener('mouseup', e => { leftPressed = false; });
+  // document.getElementById('leftBtn').addEventListener('mouseleave', e => { leftPressed = false; });
+  // document.getElementById('rightBtn').addEventListener('touchstart', e => { rightPressed = true; e.preventDefault(); });
+  // document.getElementById('rightBtn').addEventListener('touchend', e => { rightPressed = false; e.preventDefault(); });
+  // document.getElementById('rightBtn').addEventListener('mousedown', e => { rightPressed = true; });
+  // document.getElementById('rightBtn').addEventListener('mouseup', e => { rightPressed = false; });
+  // document.getElementById('rightBtn').addEventListener('mouseleave', e => { rightPressed = false; });
+
+  // --- Player movement bounds (2D) ---
+  // function clampPlayerX(x) {
+  //   // Player can move fully within the road, not just lanes
+  //   const minX = roadLeft + player.width/2;
+  //   const maxX = roadRight - player.width/2;
+  //   return Math.max(minX, Math.min(maxX, x));
+  // }
+
+  // --- Restart Game (2D) ---
+  // function restartGame() {
+  //   player.x = laneCenters[1]; // center lane
+  //   player.y = Math.round(h * 0.65); // more vertically centered
+  //   distance = 0;
+  //   score = 0;
+  //   obstacles = [];
+  //   particles = []; // Clear particles to prevent stray dots
+  //   gameOver = false;
+  //   obstacleInterval = 180;
+  //   obstacleTimer = obstacleInterval;
+  //   leftPressed = rightPressed = false;
+  //   // Removed shake reset (feature removed)
+
+  //   document.getElementById('gameOverScreen').style.display = 'none';
+  //   document.getElementById('finalScore').textContent = '0';
+  //   var scoreElem = document.getElementById('score');
+  //   if (scoreElem) scoreElem.textContent = '0 m';
+  //   gameStartTime = Date.now(); // reset spawn timer
+  //   lastTime = performance.now();
+  //   requestAnimationFrame(loop);
+  // }
+  // document.getElementById('restartBtn').onclick = restartGame;
+
+  // --- Drawing Functions (2D) ---
+  // function drawRoad() {
+  //   ctx.save();
+  //   // Widen the road for better visibility
+  //   ctx.fillStyle = '#888'; // Road grey
+  //   const roadLeft = Math.round(w * 0.10);
+  //   const roadRight = Math.round(w * 0.90);
+  //   ctx.fillRect(roadLeft, 0, roadRight - roadLeft, h);
+  //   // Lane markings (animated)
+  //   ctx.fillStyle = '#fff';
+  //   let laneWidth = Math.round((roadRight - roadLeft) / 3);
+  //   for (let i = 1; i < 3; i++) {
+  //     let x = Math.round(roadLeft + i * laneWidth);
+  //     for (let y = (roadScroll % 32) - 32; y < h; y += 32) ctx.fillRect(x - 2, y, 4, 20);
+  //   }
+  //   // Road edge lines
+  //   ctx.fillStyle = '#222';
+  //   ctx.fillRect(roadLeft - 4, 0, 4, h);
+  //   ctx.fillRect(roadRight, 0, 4, h);
+  //   // Roadside scenery
+  //   for (let i = 0; i < 4; i++) {
+  //     let y = (roadScroll * 0.7 + i * 160) % h;
+  //     // Left side
+  //     drawScenery(roadLeft-24, y);
+  //     // Right side
+  //     drawScenery(roadRight+8, (y+80)%h);
+  //   }
+  //   ctx.restore();
+  // }
+
+  // function drawScenery(x, y) {
+  //   // Randomly pick a type based on y
+  //   let type = Math.floor(y/80)%3; // Cycle through 3 scenery types
+  //   if (type === 0) { // tree
+  //     ctx.fillStyle = '#165a1f';
+  //     ctx.fillRect(x-8, y-24, 16, 24); // Trunk
+  //     ctx.beginPath();
+  //     ctx.arc(x, y-32, 16, Math.PI, 0);
+  //     ctx.fill();
+  //   } else if (type === 1) { // rock
+  //     ctx.fillStyle = '#6b6b6b';
+  //     ctx.beginPath();
+  //     ctx.moveTo(x-12,y); ctx.lineTo(x+12,y); ctx.lineTo(x+8,y-16); ctx.lineTo(x-8,y-16);
+  //     ctx.closePath();
+  //     ctx.fill();
+  //   } else { // bush
+  //     ctx.fillStyle = '#2a8c3d';
+  //     ctx.beginPath();
+  //     ctx.arc(x, y-8, 12, 0, 2*Math.PI);
+  //     ctx.fill();
+  //     ctx.beginPath();
+  //     ctx.arc(x-8, y-4, 8, 0, 2*Math.PI);
+  //     ctx.fill();
+  //     ctx.beginPath();
+  //     ctx.arc(x+8, y-4, 8, 0, 2*Math.PI);
+  //     ctx.fill();
+  //   }
+  // }
+
+  // function drawPlayer() {
+  //   ctx.save();
+  //   ctx.translate(player.x, player.y);
+  //   // Use sprite if loaded
+  //   if (textures.car.complete && textures.car.naturalWidth !== 0) {
+  //       const carWidth = 44; // desired display width
+  //       const carHeight = 74; // desired display height
+  //       ctx.drawImage(textures.car, -carWidth/2, -carHeight/2, carWidth, carHeight);
+  //   } else { // Fallback to simple rect if sprite fails
+  //       ctx.fillStyle = player.color;
+  //       ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+  //   }
+  //   ctx.restore();
+  // }
+
+  // function drawObstacle(obs) {
+  //   ctx.save();
+  //   ctx.translate(obs.x, obs.y);
+  //   if (obs.type === 'truck' && textures.truck.complete && textures.truck.naturalWidth !== 0) {
+  //       const truckWidth = 48; // desired display width
+  //       const truckHeight = 92; // desired display height
+  //       ctx.drawImage(textures.truck, -truckWidth/2, -truckHeight/2, truckWidth, truckHeight);
+  //   } else { // Fallback
+  //       ctx.fillStyle = obs.color || '#f00';
+  //       ctx.fillRect(-obs.width/2, -obs.height/2, obs.width, obs.height);
+  //   }
+  //   ctx.restore();
+  // }
+
+  // --- Spawning Logic (2D) ---
+  // function spawnObstacle() {
+  //   const lanes = [0, 1, 2];
+  //   const laneToSpawnIn = lanes[Math.floor(Math.random() * lanes.length)];
+  //   const newObstacle = {
+  //     x: laneCenters[laneToSpawnIn],
+  //     y: -50, // Start off-screen
+  //     width: 48, // Truck dimensions
+  //     height: 92,
+  //     speed: 4 + Math.random() * 2, // Random speed
+  //     color: '#c00',
+  //     type: 'truck' // For sprite rendering
+  //   };
+  //   obstacles.push(newObstacle);
+  // }
+
+  // --- Update Logic (2D) ---
+  // function update(dt) {
+  //   if (paused || gameOver) return; // Skip updates if paused or game over
+
+  //   // Update player position
+  //   if (leftPressed) player.x -= player.speed * dt * 60;
+  //   if (rightPressed) player.x += player.speed * dt * 60;
+  //   player.x = clampPlayerX(player.x);
+
+  //   // Road scroll
+  //   roadScroll += 180 * dt * speedMultiplier; // Base scroll speed of 180 pixels/sec
+
+  //   // Update obstacles
+  //   for (let i = obstacles.length - 1; i >= 0; i--) {
+  //     let obs = obstacles[i];
+  //     obs.y += obs.speed * dt * 60 * speedMultiplier;
+  //     if (obs.y > h + obs.height) { // Despawn off-screen
+  //       obstacles.splice(i, 1);
+  //     }
+  //   }
+
+  //   // Spawn new obstacles
+  //   obstacleTimer -= dt * 60;
+  //   if (obstacleTimer <= 0) {
+  //     spawnObstacle();
+  //     obstacleTimer = obstacleInterval / speedMultiplier; // Timer affected by speed
+  //     obstacleInterval = Math.max(minInterval, obstacleInterval * 0.985); // Gradually decrease interval
+  //   }
+
+  //   // Collision detection
+  //   for (let obs of obstacles) {
+  //     if (Math.abs(player.x - obs.x) < (player.width + obs.width) / 2 - 10 && // -10 for tighter hitbox
+  //         Math.abs(player.y - obs.y) < (player.height + obs.height) / 2 - 10) {
+  //       gameOver = true;
+  //       document.getElementById('gameOverScreen').style.display = 'flex';
+  //       document.getElementById('finalScore').textContent = score;
+  //       // Removed shake on collision
+  //       break;
+  //     }
+  //   }
+
+  //   // Update score and speed
+  //   if (!gameOver) {
+  //     distance += 1 * speedMultiplier; // Distance increases with speed
+  //     score = Math.floor(distance);
+  //     speedMultiplier = 1 + score / 2000; // Speed increases every 2000 points
+  //     scoreMultiplier = 1 + Math.floor(score/1000); // Score multiplier increases every 1000 points
+  //   }
+  //   updateParticles(dt);
+  // }
+
+  // --- Main Loop (2D) ---
+  // let lastTime = performance.now();
+  // let gameStartTime = Date.now();
+  // function loop(currentTime) {
+  //   if (!document.hidden) { // Basic check to not run when tab is inactive
+  //       const dt = Math.min(0.1, (currentTime - lastTime) / 1000); // Delta time in seconds, capped to prevent spiral
+  //       lastTime = currentTime;
+
+  //       if (!paused) {
+  //           update(dt);
+  //           // draw(dt); // draw function is in draw.js, which is currently commented out
+  //           // Temporary clear for now as we transition
+  //           // ctx.clearRect(0,0,w,h);
+  //           // drawStarfield();
+  //           // drawRoad();
+  //           // drawPlayer();
+  //           // obstacles.forEach(drawObstacle);
+  //           // drawParticles();
+  //       }
+
+  //       // Draw score and fade separately (they appear over pause)
+  //       // drawScore();
+  //       // drawFade();
+  //       // if (fadeDir === -1 && fadeAlpha > 0) fadeAlpha = Math.max(0, fadeAlpha - dt*2);
+  //       // if (fadeDir === 1 && fadeAlpha < 1) fadeAlpha = Math.min(1, fadeAlpha + dt*2);
+
+  //       if (gameOver) {
+  //           // Display game over screen handled by HTML/CSS and collision logic
+  //       }
+  //   }
+  //   requestAnimationFrame(loop);
+  // }
+
+  // --- Init Function (Original 2D - now replaced by initThreeJS and its animate loop) ---
+  // function init() {
+  //   // document.getElementById('bestScore').textContent = localStorage.getItem('rickshaw_best_score') || 0;
+  //   restartGame(); // Start the game
+  // }
+  // init();
+};
+
+function loadRoadTexture() {
+    if (!textureLoader || !groundMesh) {
+        console.warn('TextureLoader or groundMesh not ready for road texture loading');
+        // Optionally, retry after a short delay or ensure initThreeJS completes first
+        setTimeout(loadRoadTexture, 100); 
+        return;
     }
-    ctx.fillRect(-18, 37, 7, 7);
-    ctx.fillRect(11, 37, 7, 7);
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-22, -30, 8, 18);
-    ctx.fillRect(14, -30, 8, 18);
-    ctx.fillRect(-22, 14, 8, 18);
-    ctx.fillRect(14, 14, 8, 18);
-  }
-  // Wheels
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-22, -30, 8, 18);
-  ctx.fillRect(14, -30, 8, 18);
-  ctx.fillRect(-22, 14, 8, 18);
-  ctx.fillRect(14, 14, 8, 18);
-  ctx.restore();
+
+    textureLoader.load(
+        'textures/stone.png',
+        function (texture) { // onLoad callback
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            
+            const planeWidth = groundMesh.geometry.parameters.width;
+            const planeHeight = groundMesh.geometry.parameters.height;
+            // Assuming the stone texture is roughly square, tile it multiple times
+            // Adjust these values to control tiling density
+            texture.repeat.set(planeWidth / 10, planeHeight / 10); 
+
+            groundMesh.material.map = texture;
+            groundMesh.material.needsUpdate = true;
+        },
+        undefined, // onProgress callback
+        function (err) { // onError callback
+            console.error('An error happened loading the road texture:', err);
+            // Fallback: Ensure ground is visible even if texture fails
+            if (groundMesh) groundMesh.material.color.setHex(0x333333);
+        }
+    );
 }
 
-// Track game start time for spawn delay
-let gameStartTime = Date.now();
+function initThreeJS() {
+  const canvas = document.getElementById('gameCanvas');
+  if (!canvas) {
+    console.error('Canvas element #gameCanvas not found!');
+    return;
+  }
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x222222); // Dark grey background, similar to original canvas
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+  // Initial camera position will be adjusted by follow logic, but set a reasonable start
+  camera.position.set(0, 7, 12); // Start a bit further back and higher
+  // camera.lookAt is now dynamic in animate()
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+
+  // Handle canvas resizing
+  const resizeObserver = new ResizeObserver(entries => {
+    for (let entry of entries) {
+      const { width, height } = entry.contentRect;
+      renderer.setSize(width, height);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+  });
+  resizeObserver.observe(canvas);
+
+  // Lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); // Softer ambient light
+  scene.add(ambientLight);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+  directionalLight.position.set(8, 15, 10); // Position light to cast some shadows
+  directionalLight.castShadow = true; // Enable shadows for this light if needed later
+  scene.add(directionalLight);
+
+  // Ground Plane (Road)
+  const groundGeometry = new THREE.PlaneGeometry(30, 200); // Ground width is 30
+  const groundMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, name: 'GroundMaterial' });
+  groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+  groundMesh.rotation.x = -Math.PI / 2;
+  groundMesh.position.y = 0;
+  scene.add(groundMesh);
+
+  // Lane Markings
+  const laneMarkingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff }); // White markings
+  const markingWidth = 0.2;
+  const markingLength = groundMesh.geometry.parameters.height; // Same length as the road plane
+  const markingHeight = 0.05; // Very slightly above the road to prevent z-fighting
+
+  // Lane marking 1 (between left and center lane)
+  // Ground width 30, 3 lanes of 10. Lane centers: -10, 0, 10.
+  // Marking position: -5 and 5
+  const laneMarkingGeometry1 = new THREE.BoxGeometry(markingWidth, markingHeight, markingLength);
+  const laneMarking1 = new THREE.Mesh(laneMarkingGeometry1, laneMarkingMaterial);
+  laneMarking1.position.set(-laneWidth / 2, markingHeight / 2, 0); // Centered on Z with road
+  scene.add(laneMarking1);
+
+  // Lane marking 2 (between center and right lane)
+  const laneMarkingGeometry2 = new THREE.BoxGeometry(markingWidth, markingHeight, markingLength);
+  const laneMarking2 = new THREE.Mesh(laneMarkingGeometry2, laneMarkingMaterial);
+  laneMarking2.position.set(laneWidth / 2, markingHeight / 2, 0);
+  scene.add(laneMarking2);
+
+  // Player Model (Group of Meshes)
+  playerGroup = new THREE.Group();
+  playerGroup.name = "PlayerRickshaw";
+
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff8c00 }); // Dark Orange
+  const cabinMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc }); // Light Grey
+  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 }); // Dark Grey
+
+  // Rickshaw Body
+  const bodyGeometry = new THREE.BoxGeometry(1.2, 0.4, 2.5); // width, height, length
+  const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
+  bodyMesh.position.y = 0.4; // Center of body mesh y, so bottom is at 0.2 relative to group pivot
+  playerGroup.add(bodyMesh);
+
+  // Rickshaw Cabin
+  const cabinGeometry = new THREE.BoxGeometry(1, 0.8, 1.2); // width, height, length
+  const cabinMesh = new THREE.Mesh(cabinGeometry, cabinMaterial);
+  cabinMesh.position.y = bodyMesh.position.y + 0.4/2 + 0.8/2; // Position on top of body
+  cabinMesh.position.z = -0.3; // Positioned towards the rear of the body
+  playerGroup.add(cabinMesh);
+
+  // Wheels (Simplified as boxes)
+  const wheelRadius = 0.3; // Visually as radius for height/depth
+  const wheelThickness = 0.15;
+  const wheelYPosition = wheelRadius; // So bottom of wheel is at group's y=0
+
+  // Back Left Wheel
+  const blWheelGeometry = new THREE.BoxGeometry(wheelThickness, wheelRadius * 2, wheelRadius * 2);
+  const blWheelMesh = new THREE.Mesh(blWheelGeometry, wheelMaterial);
+  blWheelMesh.position.set(-1.2/2 - wheelThickness/2, wheelYPosition, -0.8);
+  playerGroup.add(blWheelMesh);
+
+  // Back Right Wheel
+  const brWheelGeometry = new THREE.BoxGeometry(wheelThickness, wheelRadius * 2, wheelRadius * 2);
+  const brWheelMesh = new THREE.Mesh(brWheelGeometry, wheelMaterial);
+  brWheelMesh.position.set(1.2/2 + wheelThickness/2, wheelYPosition, -0.8);
+  playerGroup.add(brWheelMesh);
+
+  // Front Wheel (centered)
+  const fWheelGeometry = new THREE.BoxGeometry(wheelThickness, wheelRadius * 2, wheelRadius * 2);
+  const fWheelMesh = new THREE.Mesh(fWheelGeometry, wheelMaterial);
+  fWheelMesh.position.set(0, wheelYPosition, 1.0);
+  playerGroup.add(fWheelMesh);
+
+  // Position the whole player group so its logical 'bottom' is at y=0 on the ground plane.
+  // The playerGroup's pivot is at its local (0,0,0).
+  // If wheels have radius 0.3 and their center is at y=0.3 in local space,
+  // the group's y position on the scene should be 0 for wheels to touch ground if group pivot is at wheel bottom.
+  // Or, more simply, position the group, and ensure local components are placed correctly relative to group's origin.
+  playerGroup.position.set(0, 0, 3); // Group's y=0 means rickshaw's defined base is on the ground.
+                                       // The wheels are defined with y position relative to this group origin.
+
+  animate(); // Start the 3D animation loop
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (!gameOver) {
+    score++; 
+    updateScoreDisplay();
+
+    // Difficulty Scaling based on score
+    // Increase obstacle speed
+    currentObstacleSpeed = Math.min(maxObstacleSpeed, initialObstacleSpeed + (score / 5000)); // Example: speed increases noticeably every 5000 points
+    
+    // Decrease spawn interval
+    currentObstacleSpawnInterval = Math.max(minObstacleSpawnInterval, initialObstacleSpawnInterval - Math.floor(score / 1000) * 5); // Example: interval decreases every 1000 points
+
+    // Player Movement & Boundary
+    if (playerGroup && groundMesh) {
+      const moveSpeed = 0.15;
+      if (leftPressed) playerGroup.position.x -= moveSpeed;
+      if (rightPressed) playerGroup.position.x += moveSpeed;
+      const playerBodyWidth = 1.2;
+      const playerHalfEffectiveWidth = playerBodyWidth / 2;
+      // Lane positions are -10, 0, 10. Player can move between these.
+      // Road half width is 15. Player boundary should allow reaching outer lanes.
+      // Let's use the defined lanePositions for player boundary to be more precise for lane-based movement if desired later
+      // For now, road boundary is fine. Max X for player is 15 - playerHalfWidth
+      const roadBoundary = groundMesh.geometry.parameters.width / 2 - playerHalfEffectiveWidth;
+      playerGroup.position.x = Math.max(-roadBoundary, Math.min(roadBoundary, playerGroup.position.x));
+    }
+
+    // Road Texture Scrolling
+    if (groundMesh && groundMesh.material && groundMesh.material.map) {
+      groundMesh.material.map.offset.y -= roadScrollSpeed;
+    }
+
+    // Obstacle Spawning
+    obstacleSpawnTimer++;
+    if (obstacleSpawnTimer > currentObstacleSpawnInterval) {
+      spawnObstacle();
+      obstacleSpawnTimer = 0;
+    }
+
+    // Obstacle Movement, Despawning & Collision Detection
+    const playerBox = new THREE.Box3();
+    if (playerGroup) {
+        playerBox.setFromObject(playerGroup);
+    }
+
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const obstacle = obstacles[i];
+      obstacle.position.z += currentObstacleSpeed;
+
+      if (obstacle.position.z > camera.position.z + 20) {
+        scene.remove(obstacle);
+        obstacles.splice(i, 1);
+        continue;
+      }
+
+      if (playerGroup) {
+        const obstacleBox = new THREE.Box3().setFromObject(obstacle);
+        if (playerBox.intersectsBox(obstacleBox)) {
+          triggerGameOver();
+          break; 
+        }
+      }
+    }
+  } 
+
+  // Camera Follow Logic (outside of !gameOver so camera still works on game over screen)
+  if (playerGroup) {
+    const targetCameraX = playerGroup.position.x;
+    // Smoothly interpolate camera's X position
+    camera.position.x += (targetCameraX - camera.position.x) * cameraFollowSpeed;
+    
+    // Keep camera Y and Z relative to its current position or player, for simplicity, let's maintain current height and Z distance from player
+    // This assumes playerGroup.position.z is relatively static, which it is in this game (player moves in X, world scrolls in Z)
+    // camera.position.y = playerGroup.position.y + 7; // Fixed height above player
+    // camera.position.z = playerGroup.position.z + 10; // Fixed distance behind player
+    // For our setup, player Z is fixed, so camera Z can be fixed relative to world, or adjust if player Z could change.
+    // The initial camera.position.set(0, 7, 12) in init defines this relative Z distance and Y height.
+    // We only need to update X smoothly and ensure lookAt is correct.
+
+    // Camera looks at the player or slightly in front
+    const lookAtPosition = new THREE.Vector3(playerGroup.position.x, playerGroup.position.y + 1, playerGroup.position.z - 2);
+    camera.lookAt(lookAtPosition);
+  }
+
+  renderer.render(scene, camera);
+}
+
+const obstacleGeometry = new THREE.BoxGeometry(2, 2, 2); // width, height, depth
+const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Red
 
 function spawnObstacle() {
-  // Wait 1 second after game start before spawning trucks
-  if (Date.now() - gameStartTime < 1000) return;
+  const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+  
+  // Choose a random lane
+  const laneIndex = Math.floor(Math.random() * lanePositions.length);
+  obstacle.position.x = lanePositions[laneIndex];
+  obstacle.position.y = 1; // Center of obstacle (height/2) so it sits on the ground
+  obstacle.position.z = -100; // Spawn far away
 
-  const lanes = [0, 1, 2];
-  // Only allow two trucks if distance > 1000, otherwise always one
-  let allowTwo = distance > 1000;
-  let numTrucks = allowTwo && Math.random() < 0.5 ? 2 : 1;
-  // Shuffle lanes and pick which lanes to spawn in
-  let shuffled = lanes.slice().sort(() => Math.random() - 0.5);
-  let truckLanes = shuffled.slice(0, numTrucks);
-  const spawnY = -120;
-
-  // Prevent vertical overlap in the same lane
-  let minGap = 100; // min vertical gap between trucks in same lane
-  for (let lane of truckLanes) {
-    let overlap = obstacles.some(o => o.type === 'truck' && o.lane === lane && Math.abs(o.y - spawnY) < minGap);
-    if (overlap) return; // If any overlap, skip spawning this row entirely
-  }
-
-  // Guarantee at least one open lane in this vertical region
-  let futureObstacles = truckLanes.slice();
-  let openLaneExists = lanes.some(lane => !futureObstacles.includes(lane));
-  if (!openLaneExists) return; // Never allow all 3 lanes blocked
-
-  // Only spawn a new row if previous row is far enough down
-  if (obstacles.length > 0) {
-    let lastRowY = Math.max(...obstacles.map(o => o.y), 0);
-    if (lastRowY > spawnY + minGap) return;
-  }
-
-  // Place trucks in chosen lanes for this row
-  for (let lane of truckLanes) {
-    // Add truck variety: random color, rare fast truck
-    let truckColors = ['#b97a57', '#8d5524', '#d35400', '#2e7d32', '#1976d2'];
-    let color = truckColors[Math.floor(Math.random()*truckColors.length)];
-    let isFast = Math.random() < 0.12; // 12% chance
-    let baseSpeed = 8 + Math.random() * 2 + distance / 600 + (isFast ? 4 : 0);
-    obstacles.push({
-      x: laneCenters[lane],
-      y: spawnY,
-      lane,
-      width: 48,
-      height: 88,
-      speed: baseSpeed,
-      type: 'truck',
-      color,
-      fast: isFast,
-      // Trucks always stay in their assigned lane
-      update: function(dt) {
-        this.y += Math.abs(this.speed) * dt * (1 + distance/1000);
-      }
-    });
-  }
-  // No coins/powerups spawned
+  scene.add(obstacle);
+  obstacles.push(obstacle);
 }
 
-// --- Main Draw Function ---
-function draw(dt) {
-  // Fade in at game start
-  if (fadeAlpha > 0 && fadeDir < 0) fadeAlpha = Math.max(0, fadeAlpha - dt*1.2);
-  if (fadeAlpha > 0 && fadeDir > 0) fadeAlpha = Math.min(1, fadeAlpha + dt*2.5);
-
-  var scoreElem = document.getElementById('score');
-  if (scoreElem) scoreElem.textContent = score + ' m';
-  if (!window.DEBUG_ONCE_DRAW) { console.log('DRAW RUNNING'); window.DEBUG_ONCE_DRAW = true; }
-  drawStarfield();
-  drawRoad();
-  drawHeadlights();
-  drawPlayer();
-  drawParticles();
-  for (let obs of obstacles) drawObstacle(obs);
+function updateScoreDisplay() {
+    if (scoreDisplay) scoreDisplay.textContent = score + ' m';
 }
 
-function update(dt) {
-  if (paused) return;
-  if (!gameOver) {
-    distance += dt * 200;
-    score = Math.floor(distance / 10); // Simple, reliable score: 1 point per 10 meters
+function triggerGameOver() {
+    gameOver = true;
+    currentObstacleSpeed = 0; // Stop obstacles immediately
+    if (finalScoreDisplay) finalScoreDisplay.textContent = score;
+    if (gameOverScreen) gameOverScreen.style.display = 'flex'; // Show game over screen
+    console.log("Collision Detected! Game Over. Final Score: " + score);
+}
 
+function restartGame() {
+    gameOver = false;
+    score = 0;
+    updateScoreDisplay();
+    currentObstacleSpeed = initialObstacleSpeed; // Reset speed
+    currentObstacleSpawnInterval = initialObstacleSpawnInterval; // Reset spawn interval
 
-    roadScroll += dt * 420 * 0.7; // Faster road scroll for more speed
-    if (leftPressed) player.x -= player.speed * dt * 60;
-    if (rightPressed) player.x += player.speed * dt * 60;
-    player.x = clampPlayerX(player.x); // always keep car within road
-
-    player.x = Math.max(laneCenters[0], Math.min(laneCenters[2], player.x));
-    obstacleTimer += dt * 1000;
-    if (obstacleTimer >= obstacleInterval) {
-      spawnObstacle();
-      obstacleTimer = 0;
+    if (playerGroup) {
+        playerGroup.position.set(0, 0, 3);
+        leftPressed = false; 
+        rightPressed = false;
     }
-  }
-  for (let obs of obstacles) {
-    if (obs.type === 'truck' && typeof obs.update === 'function') {
-      obs.update(dt);
-    } else if (obs.type !== 'truck') {
-      obs.y += Math.abs(obs.speed) * dt * (1 + distance/1000);
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        scene.remove(obstacles[i]);
     }
-    // Near-miss shake: if player is close but not colliding
-    let nearMiss = !gameOver && Math.abs(player.x - obs.x) < (player.width + obs.width)/2 + 10 &&
-        Math.abs(player.y - obs.y) < (player.height + obs.height)/2 + 10 &&
-        !(Math.abs(player.x - obs.x) < (player.width + obs.width)/2 && Math.abs(player.y - obs.y) < (player.height + obs.height)/2);
-    // No near-miss effects: no shake, no particles, no multiplier
-
-  }
-  // No coin or power-up logic
-
-  obstacles = obstacles.filter(obs => obs.y - obs.height/2 < h);
-  for (let obs of obstacles) {
-    if (
-      Math.abs(player.x - obs.x) < (player.width + obs.width) / 2 &&
-      Math.abs(player.y - obs.y) < (player.height + obs.height) / 2
-    ) {
-      gameOver = true;
-      document.getElementById('gameOverScreen').style.display = 'flex';
-      document.getElementById('finalScore').textContent = score;
-      break;
-    }
-  }
-  // Make spawn interval decrease more aggressively as distance increases
-// Truck spawn interval and speed get much harder, much faster
-let difficulty = distance > 2000 ? 3.5 : distance > 1000 ? 2.2 : 1.2;
-obstacleInterval = Math.max(minInterval, 110 - (distance/5.5)*difficulty); // much faster spawn
-for (let obs of obstacles) {
-  if (obs.type === 'truck') {
-    obs.speed = 11 + (distance/240)*difficulty + (obs.fast ? 5 : 0) + Math.random()*2.5;
-  }
-}
+    obstacles = [];
+    obstacleSpawnTimer = 0;
+    if (gameOverScreen) gameOverScreen.style.display = 'none';
 }
 
-let lastTime = 0;
-function loop(ts) {
-  let dt = (ts - lastTime) / 1000;
-  if (dt > 0.1) dt = 0.1;
-  lastTime = ts;
-  update(dt);
-  draw(dt);
-  if (!gameOver) requestAnimationFrame(loop);
-}
-
-function init() {
-  restartGame();
-  lastTime = performance.now();
-  requestAnimationFrame(loop);
-}
-init();
-}
+// Placeholder for HUD update if needed
+// function updateHUD() {
+//   const scoreElement = document.getElementById('score');
+//   if (scoreElement) {
+//     // scoreElement.textContent = score + ' m'; // score variable is currently commented out
+//   }
+//   // const bestScoreElement = document.getElementById('bestScore');
+//   // if (bestScoreElement) {
+//   //   bestScoreElement.textContent = localStorage.getItem('rickshaw_best_score') || 0;
+//   // }
+// }
