@@ -6,6 +6,7 @@
 
 let scene, camera, renderer;
 let playerGroup, groundMesh;
+let testCube; // Declare testCube globally for logging
 // Keep input state global for now
 let leftPressed = false, rightPressed = false;
 let textureLoader; // Declare textureLoader globally or pass it around
@@ -528,9 +529,11 @@ function initThreeJS() {
 
   // Camera
   camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-  // Initial camera position will be adjusted by follow logic, but set a reasonable start
-  camera.position.set(0, 10, 15); // Start higher and further back
-  // camera.lookAt is now dynamic in animate()
+  // DEBUG: Fixed camera position and lookAt
+  camera.position.set(0, 5, 15); // Adjusted Y and Z for a better overview
+  camera.lookAt(0, 0, 0); 
+  console.log("DEBUG: Initial Camera Position:", camera.position);
+  console.log("DEBUG: Camera is looking at (0,0,0)");
 
   // Renderer
   renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
@@ -582,6 +585,14 @@ function initThreeJS() {
   const laneMarking2 = new THREE.Mesh(laneMarkingGeometry2, laneMarkingMaterial);
   laneMarking2.position.set(laneWidth / 2, markingHeight / 2, 0);
   scene.add(laneMarking2);
+
+  // DEBUG: Add a test cube at the origin
+  const testCubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+  const testCubeMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Bright red
+  testCube = new THREE.Mesh(testCubeGeometry, testCubeMaterial);
+  testCube.position.set(0, 0.5, 0); // Position it slightly above ground
+  scene.add(testCube);
+  console.log("DEBUG: Test Cube added at scene origin, position:", testCube.position);
 
   // Player Rickshaw Model (Refined Black and Yellow)
   playerGroup = new THREE.Group();
@@ -768,6 +779,11 @@ function initThreeJS() {
 function animate() {
   requestAnimationFrame(animate);
 
+  // DEBUG: Log positions
+  if (camera) console.log("DEBUG: Camera Position:", camera.position.x.toFixed(2), camera.position.y.toFixed(2), camera.position.z.toFixed(2));
+  if (playerGroup) console.log("DEBUG: PlayerGroup Position:", playerGroup.position.x.toFixed(2), playerGroup.position.y.toFixed(2), playerGroup.position.z.toFixed(2));
+  if (testCube) console.log("DEBUG: TestCube Position:", testCube.position.x.toFixed(2), testCube.position.y.toFixed(2), testCube.position.z.toFixed(2));
+
   if (!gameOver) {
     score++; 
     updateScoreDisplay();
@@ -793,7 +809,7 @@ function animate() {
     // Scenery Spawning
     scenerySpawnTimer++;
     if (scenerySpawnTimer > scenerySpawnInterval) {
-        spawnSceneryObject();
+        // spawnSceneryObject(); // DEBUG: Temporarily disable
         scenerySpawnTimer = 0;
     }
 
@@ -811,7 +827,7 @@ function animate() {
     // Obstacle Spawning
     obstacleSpawnTimer++;
     if (obstacleSpawnTimer > currentObstacleSpawnInterval) {
-      spawnObstacle();
+      // spawnObstacle(); // DEBUG: Temporarily disable
       obstacleSpawnTimer = 0;
     }
 
@@ -841,12 +857,17 @@ function animate() {
   } 
 
   // Camera Follow Logic
+  // DEBUG: Temporarily disable dynamic camera movement
+  /*
   if (playerGroup) {
     const targetCameraX = playerGroup.position.x;
     camera.position.x += (targetCameraX - camera.position.x) * cameraFollowSpeed;
     const lookAtPosition = new THREE.Vector3(playerGroup.position.x, playerGroup.position.y + 1.5, playerGroup.position.z); // Look at player, slightly higher Y for better view
     camera.lookAt(lookAtPosition);
   }
+  */
+  // DEBUG: Keep camera looking at origin
+  if (camera) camera.lookAt(0,0,0);
 
   renderer.render(scene, camera);
 }
