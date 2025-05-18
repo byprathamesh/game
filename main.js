@@ -29,6 +29,33 @@ let score = 0;
 let scoreDisplay, finalScoreDisplay, gameOverScreen, restartBtn;
 const cameraFollowSpeed = 0.05; // Smoothing factor for camera movement
 
+// New texture variables
+let carTexture, truckTexture;
+
+// Obstacle (Truck) Colors
+const truckBodyColor = 0x0033cc; // Dark Blue
+const truckCabinColor = 0xaaaaaa; // Light Grey
+const truckWheelColor = 0x222222; // Dark Grey
+
+// Pre-define truck component geometries for reuse (optional optimization, but good practice)
+const truckBodyWidth = 2.2, truckBodyHeight = 1.8, truckBodyLength = 4.5;
+const truckCabinWidth = truckBodyWidth * 0.8, truckCabinHeight = 1.2, truckCabinLength = truckBodyLength * 0.3;
+const truckWheelRadius = 0.5, truckWheelThickness = 0.3;
+
+const truckBodyGeometry = new THREE.BoxGeometry(truckBodyWidth, truckBodyHeight, truckBodyLength);
+const truckCabinGeometry = new THREE.BoxGeometry(truckCabinWidth, truckCabinHeight, truckCabinLength);
+const truckWheelGeometry = new THREE.BoxGeometry(truckWheelThickness, truckWheelRadius * 2, truckWheelRadius * 2);
+
+let sceneryObjects = [];
+let scenerySpawnTimer = 0;
+const scenerySpawnInterval = 90; // Spawn scenery a bit more frequently than obstacles
+const scenerySpeedFactor = 0.95; // Scenery moves slightly slower than road for parallax
+
+// Scenery Colors & Types
+const poleColor = 0x888888; // Grey
+const bushColor = 0x228B22; // Forest Green
+const buildingColor = 0x778899; // Light Slate Gray
+
 window.onload = function() {
   // Initialize Three.js Environment First
   initThreeJS();
@@ -460,6 +487,18 @@ function loadRoadTexture() {
     );
 }
 
+function loadVehicleTextures() {
+    // Commenting out as we are using basic colored geometry for now
+    // if (!textureLoader) { ... }
+    // carTexture = textureLoader.load('sprites/car.png', ...);
+    // truckTexture = textureLoader.load('sprites/truck.png', ...);
+}
+
+function updatePlayerMaterial() {
+    // Commenting out as we are not applying carTexture for this approach
+    // if (playerGroup && carTexture) { ... }
+}
+
 function initThreeJS() {
   const canvas = document.getElementById('gameCanvas');
   if (!canvas) {
@@ -494,11 +533,10 @@ function initThreeJS() {
   resizeObserver.observe(canvas);
 
   // Lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); // Softer ambient light
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // Slightly brighter ambient
   scene.add(ambientLight);
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
-  directionalLight.position.set(8, 15, 10); // Position light to cast some shadows
-  directionalLight.castShadow = true; // Enable shadows for this light if needed later
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Slightly brighter directional
+  directionalLight.position.set(8, 15, 10);
   scene.add(directionalLight);
 
   // Ground Plane (Road)
@@ -529,58 +567,75 @@ function initThreeJS() {
   laneMarking2.position.set(laneWidth / 2, markingHeight / 2, 0);
   scene.add(laneMarking2);
 
-  // Player Model (Group of Meshes)
+  // Player Rickshaw Model (Refined Black and Yellow)
   playerGroup = new THREE.Group();
   playerGroup.name = "PlayerRickshaw";
+  scene.add(playerGroup);
 
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff8c00 }); // Dark Orange
-  const cabinMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc }); // Light Grey
-  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 }); // Dark Grey
+  const rickshawBodyMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 }); // Brighter Yellow (Gold-ish)
+  const rickshawCabinMaterial = new THREE.MeshStandardMaterial({ color: 0x0A0A0A }); // Very Dark Black
+  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x1A1A1A }); // Darker Grey for wheels
+  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x777777 }); // Grey for metal parts
 
-  // Rickshaw Body
-  const bodyGeometry = new THREE.BoxGeometry(1.2, 0.4, 2.5); // width, height, length
-  const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
-  bodyMesh.position.y = 0.4; // Center of body mesh y, so bottom is at 0.2 relative to group pivot
+  // Rickshaw Body (Yellow)
+  const bodyWidth = 1.2, bodyHeight = 0.4, bodyLength = 2.0;
+  const bodyGeometry = new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyLength);
+  const bodyMesh = new THREE.Mesh(bodyGeometry, rickshawBodyMaterial);
+  bodyMesh.name = "RickshawBody";
+  bodyMesh.position.y = bodyHeight / 2 + 0.3; // Base slightly higher for more prominent wheels
   playerGroup.add(bodyMesh);
 
-  // Rickshaw Cabin
-  const cabinGeometry = new THREE.BoxGeometry(1, 0.8, 1.2); // width, height, length
-  const cabinMesh = new THREE.Mesh(cabinGeometry, cabinMaterial);
-  cabinMesh.position.y = bodyMesh.position.y + 0.4/2 + 0.8/2; // Position on top of body
-  cabinMesh.position.z = -0.3; // Positioned towards the rear of the body
+  // Rickshaw Cabin/Roof (Black)
+  const cabinWidth = bodyWidth * 0.95, cabinHeight = 0.6, cabinLength = bodyLength * 0.55;
+  const cabinGeometry = new THREE.BoxGeometry(cabinWidth, cabinHeight, cabinLength);
+  const cabinMesh = new THREE.Mesh(cabinGeometry, rickshawCabinMaterial);
+  cabinMesh.position.y = bodyMesh.position.y + bodyHeight / 2 + cabinHeight / 2 - 0.05; // Snug on body
+  cabinMesh.position.z = -bodyLength * 0.2; // Positioned towards the back
   playerGroup.add(cabinMesh);
 
-  // Wheels (Simplified as boxes)
-  const wheelRadius = 0.3; // Visually as radius for height/depth
+  // Front part / Windshield suggestion (Black)
+  const frontCabinWidth = cabinWidth * 0.8, frontCabinHeight = cabinHeight * 0.7, frontCabinDepth = 0.3;
+  const frontCabinGeometry = new THREE.BoxGeometry(frontCabinWidth, frontCabinHeight, frontCabinDepth);
+  const frontCabinMesh = new THREE.Mesh(frontCabinGeometry, rickshawCabinMaterial); // Same black as roof
+  frontCabinMesh.position.y = bodyMesh.position.y + bodyHeight/2 + frontCabinHeight/2 -0.1; // Lower than main cabin roof
+  frontCabinMesh.position.z = bodyMesh.position.z + bodyLength/2 - frontCabinDepth/2 - 0.2; // At the front of body
+  // Optional: slight angle for windshield - too complex with simple boxes without rotation
+  playerGroup.add(frontCabinMesh);
+  
+  // Handlebar/Steering Column Suggestion (Grey Metal)
+  const handlebarHeight = 0.5, handlebarRadius = 0.05;
+  const handlebarGeometry = new THREE.CylinderGeometry(handlebarRadius, handlebarRadius, handlebarHeight, 8);
+  const handlebarMesh = new THREE.Mesh(handlebarGeometry, metalMaterial);
+  handlebarMesh.position.y = bodyMesh.position.y + bodyHeight/2 + 0.1;
+  handlebarMesh.position.z = frontCabinMesh.position.z + frontCabinDepth/2 + 0.15; // In front of windshield area
+  handlebarMesh.rotation.x = Math.PI / 4; // Angle it slightly
+  playerGroup.add(handlebarMesh);
+
+  // Wheels (Darker Grey)
+  const wheelRadius = 0.35; 
   const wheelThickness = 0.15;
-  const wheelYPosition = wheelRadius; // So bottom of wheel is at group's y=0
+  const wheelYPosition = wheelRadius; 
 
   // Back Left Wheel
   const blWheelGeometry = new THREE.BoxGeometry(wheelThickness, wheelRadius * 2, wheelRadius * 2);
   const blWheelMesh = new THREE.Mesh(blWheelGeometry, wheelMaterial);
-  blWheelMesh.position.set(-1.2/2 - wheelThickness/2, wheelYPosition, -0.8);
+  blWheelMesh.position.set(-bodyWidth/2 - wheelThickness/2 + 0.1, wheelYPosition, -bodyLength/2 + wheelRadius + 0.2);
   playerGroup.add(blWheelMesh);
 
   // Back Right Wheel
   const brWheelGeometry = new THREE.BoxGeometry(wheelThickness, wheelRadius * 2, wheelRadius * 2);
   const brWheelMesh = new THREE.Mesh(brWheelGeometry, wheelMaterial);
-  brWheelMesh.position.set(1.2/2 + wheelThickness/2, wheelYPosition, -0.8);
+  brWheelMesh.position.set(bodyWidth/2 + wheelThickness/2 - 0.1, wheelYPosition, -bodyLength/2 + wheelRadius + 0.2);
   playerGroup.add(brWheelMesh);
 
   // Front Wheel (centered)
   const fWheelGeometry = new THREE.BoxGeometry(wheelThickness, wheelRadius * 2, wheelRadius * 2);
   const fWheelMesh = new THREE.Mesh(fWheelGeometry, wheelMaterial);
-  fWheelMesh.position.set(0, wheelYPosition, 1.0);
+  fWheelMesh.position.set(0, wheelYPosition, bodyLength/2 - wheelRadius + 0.1);
   playerGroup.add(fWheelMesh);
 
-  // Position the whole player group so its logical 'bottom' is at y=0 on the ground plane.
-  // The playerGroup's pivot is at its local (0,0,0).
-  // If wheels have radius 0.3 and their center is at y=0.3 in local space,
-  // the group's y position on the scene should be 0 for wheels to touch ground if group pivot is at wheel bottom.
-  // Or, more simply, position the group, and ensure local components are placed correctly relative to group's origin.
-  playerGroup.position.set(0, 0, 3); // Group's y=0 means rickshaw's defined base is on the ground.
-                                       // The wheels are defined with y position relative to this group origin.
-
+  playerGroup.position.set(0, 0, 3); 
+  
   animate(); // Start the 3D animation loop
 }
 
@@ -590,13 +645,8 @@ function animate() {
   if (!gameOver) {
     score++; 
     updateScoreDisplay();
-
-    // Difficulty Scaling based on score
-    // Increase obstacle speed
-    currentObstacleSpeed = Math.min(maxObstacleSpeed, initialObstacleSpeed + (score / 5000)); // Example: speed increases noticeably every 5000 points
-    
-    // Decrease spawn interval
-    currentObstacleSpawnInterval = Math.max(minObstacleSpawnInterval, initialObstacleSpawnInterval - Math.floor(score / 1000) * 5); // Example: interval decreases every 1000 points
+    currentObstacleSpeed = Math.min(maxObstacleSpeed, initialObstacleSpeed + (score / 5000));
+    currentObstacleSpawnInterval = Math.max(minObstacleSpawnInterval, initialObstacleSpawnInterval - Math.floor(score / 1000) * 5);
 
     // Player Movement & Boundary
     if (playerGroup && groundMesh) {
@@ -605,10 +655,6 @@ function animate() {
       if (rightPressed) playerGroup.position.x += moveSpeed;
       const playerBodyWidth = 1.2;
       const playerHalfEffectiveWidth = playerBodyWidth / 2;
-      // Lane positions are -10, 0, 10. Player can move between these.
-      // Road half width is 15. Player boundary should allow reaching outer lanes.
-      // Let's use the defined lanePositions for player boundary to be more precise for lane-based movement if desired later
-      // For now, road boundary is fine. Max X for player is 15 - playerHalfWidth
       const roadBoundary = groundMesh.geometry.parameters.width / 2 - playerHalfEffectiveWidth;
       playerGroup.position.x = Math.max(-roadBoundary, Math.min(roadBoundary, playerGroup.position.x));
     }
@@ -616,6 +662,24 @@ function animate() {
     // Road Texture Scrolling
     if (groundMesh && groundMesh.material && groundMesh.material.map) {
       groundMesh.material.map.offset.y -= roadScrollSpeed;
+    }
+
+    // Scenery Spawning
+    scenerySpawnTimer++;
+    if (scenerySpawnTimer > scenerySpawnInterval) {
+        spawnSceneryObject();
+        scenerySpawnTimer = 0;
+    }
+
+    // Scenery Movement & Despawning
+    const sceneryZSpeed = currentObstacleSpeed * scenerySpeedFactor; 
+    for (let i = sceneryObjects.length - 1; i >= 0; i--) {
+        const scenery = sceneryObjects[i];
+        scenery.position.z += sceneryZSpeed; 
+        if (scenery.position.z > camera.position.z + 30) { 
+            scene.remove(scenery);
+            sceneryObjects.splice(i, 1);
+        }
     }
 
     // Obstacle Spawning
@@ -630,17 +694,14 @@ function animate() {
     if (playerGroup) {
         playerBox.setFromObject(playerGroup);
     }
-
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const obstacle = obstacles[i];
       obstacle.position.z += currentObstacleSpeed;
-
       if (obstacle.position.z > camera.position.z + 20) {
         scene.remove(obstacle);
         obstacles.splice(i, 1);
         continue;
       }
-
       if (playerGroup) {
         const obstacleBox = new THREE.Box3().setFromObject(obstacle);
         if (playerBox.intersectsBox(obstacleBox)) {
@@ -651,21 +712,10 @@ function animate() {
     }
   } 
 
-  // Camera Follow Logic (outside of !gameOver so camera still works on game over screen)
+  // Camera Follow Logic
   if (playerGroup) {
     const targetCameraX = playerGroup.position.x;
-    // Smoothly interpolate camera's X position
     camera.position.x += (targetCameraX - camera.position.x) * cameraFollowSpeed;
-    
-    // Keep camera Y and Z relative to its current position or player, for simplicity, let's maintain current height and Z distance from player
-    // This assumes playerGroup.position.z is relatively static, which it is in this game (player moves in X, world scrolls in Z)
-    // camera.position.y = playerGroup.position.y + 7; // Fixed height above player
-    // camera.position.z = playerGroup.position.z + 10; // Fixed distance behind player
-    // For our setup, player Z is fixed, so camera Z can be fixed relative to world, or adjust if player Z could change.
-    // The initial camera.position.set(0, 7, 12) in init defines this relative Z distance and Y height.
-    // We only need to update X smoothly and ensure lookAt is correct.
-
-    // Camera looks at the player or slightly in front
     const lookAtPosition = new THREE.Vector3(playerGroup.position.x, playerGroup.position.y + 1, playerGroup.position.z - 2);
     camera.lookAt(lookAtPosition);
   }
@@ -673,20 +723,91 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-const obstacleGeometry = new THREE.BoxGeometry(2, 2, 2); // width, height, depth
-const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Red
-
 function spawnObstacle() {
-  const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+  const obstacleGroup = new THREE.Group();
+
+  // Truck Body Material & Mesh
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: truckBodyColor });
+  const bodyMesh = new THREE.Mesh(truckBodyGeometry, bodyMaterial);
+  bodyMesh.position.y = truckBodyHeight / 2; // Assuming group pivot is at ground level
+  obstacleGroup.add(bodyMesh);
+
+  // Truck Cabin Material & Mesh
+  const cabinMaterial = new THREE.MeshStandardMaterial({ color: truckCabinColor });
+  const cabinMesh = new THREE.Mesh(truckCabinGeometry, cabinMaterial);
+  // Position cabin on top and front of the truck body
+  cabinMesh.position.y = truckBodyHeight + truckCabinHeight / 2;
+  cabinMesh.position.z = truckBodyLength / 2 - truckCabinLength / 2 - 0.1; // Front of body
+  obstacleGroup.add(cabinMesh);
   
+  // Truck Wheels (Simplified)
+  const wheelMaterial = new THREE.MeshStandardMaterial({ color: truckWheelColor });
+  const wheelYPos = truckWheelRadius;
+
+  // Front Wheels (paired)
+  const flWheelMesh = new THREE.Mesh(truckWheelGeometry, wheelMaterial);
+  flWheelMesh.position.set(-truckBodyWidth/2 + truckWheelRadius*0.7, wheelYPos, truckBodyLength/2 - truckWheelRadius * 1.5);
+  obstacleGroup.add(flWheelMesh);
+
+  const frWheelMesh = new THREE.Mesh(truckWheelGeometry, wheelMaterial);
+  frWheelMesh.position.set(truckBodyWidth/2 - truckWheelRadius*0.7, wheelYPos, truckBodyLength/2 - truckWheelRadius* 1.5);
+  obstacleGroup.add(frWheelMesh);
+
+  // Rear Wheels (paired, dually-style or just wider apart)
+  const rlWheelMesh = new THREE.Mesh(truckWheelGeometry, wheelMaterial);
+  rlWheelMesh.position.set(-truckBodyWidth/2 + truckWheelRadius*0.7, wheelYPos, -truckBodyLength/2 + truckWheelRadius * 1.5);
+  obstacleGroup.add(rlWheelMesh);
+
+  const rrWheelMesh = new THREE.Mesh(truckWheelGeometry, wheelMaterial);
+  rrWheelMesh.position.set(truckBodyWidth/2 - truckWheelRadius*0.7, wheelYPos, -truckBodyLength/2 + truckWheelRadius * 1.5);
+  obstacleGroup.add(rrWheelMesh);
+
   // Choose a random lane
   const laneIndex = Math.floor(Math.random() * lanePositions.length);
-  obstacle.position.x = lanePositions[laneIndex];
-  obstacle.position.y = 1; // Center of obstacle (height/2) so it sits on the ground
-  obstacle.position.z = -100; // Spawn far away
+  obstacleGroup.position.x = lanePositions[laneIndex];
+  obstacleGroup.position.y = 0; // Group pivot at ground level
+  obstacleGroup.position.z = -100; 
 
-  scene.add(obstacle);
-  obstacles.push(obstacle);
+  scene.add(obstacleGroup);
+  obstacles.push(obstacleGroup); // Store the group
+}
+
+function spawnSceneryObject() {
+    const objectType = Math.random(); // Randomly determine scenery type
+    let sceneryMesh;
+
+    const side = Math.random() < 0.5 ? -1 : 1; // -1 for left, 1 for right
+    const lateralOffset = groundMesh.geometry.parameters.width / 2 + 5 + Math.random() * 10; // Spawn 5-15 units away from road edge
+    const spawnZ = -150; // Spawn further back than obstacles
+
+    if (objectType < 0.4) { // Type 1: Pole
+        const poleGeometry = new THREE.BoxGeometry(0.3, Math.random() * 5 + 5, 0.3); // Thin, tallish
+        const poleMaterial = new THREE.MeshStandardMaterial({ color: poleColor });
+        sceneryMesh = new THREE.Mesh(poleGeometry, poleMaterial);
+        sceneryMesh.position.y = poleGeometry.parameters.height / 2;
+    } else if (objectType < 0.8) { // Type 2: Bush/Low Building
+        const bushWidth = Math.random() * 4 + 2;
+        const bushHeight = Math.random() * 2 + 1;
+        const bushDepth = Math.random() * 3 + 2;
+        const bushGeometry = new THREE.BoxGeometry(bushWidth, bushHeight, bushDepth);
+        const bushMaterial = new THREE.MeshStandardMaterial({ color: bushColor });
+        sceneryMesh = new THREE.Mesh(bushGeometry, bushMaterial);
+        sceneryMesh.position.y = bushGeometry.parameters.height / 2;
+    } else { // Type 3: Taller Building Silhouette
+        const buildingWidth = Math.random() * 5 + 3;
+        const buildingHeight = Math.random() * 8 + 6;
+        const buildingDepth = Math.random() * 4 + 3;
+        const buildingGeometry = new THREE.BoxGeometry(buildingWidth, buildingHeight, buildingDepth);
+        const buildingMaterial = new THREE.MeshStandardMaterial({ color: buildingColor });
+        sceneryMesh = new THREE.Mesh(buildingGeometry, buildingMaterial);
+        sceneryMesh.position.y = buildingGeometry.parameters.height / 2;
+    }
+
+    sceneryMesh.position.x = side * lateralOffset;
+    sceneryMesh.position.z = spawnZ;
+    
+    scene.add(sceneryMesh);
+    sceneryObjects.push(sceneryMesh);
 }
 
 function updateScoreDisplay() {
@@ -718,6 +839,15 @@ function restartGame() {
     }
     obstacles = [];
     obstacleSpawnTimer = 0;
+
+    // Clear existing scenery objects
+    for (let i = sceneryObjects.length - 1; i >= 0; i--) {
+        scene.remove(sceneryObjects[i]);
+        // Consider disposing geometry/material if not shared and created uniquely
+    }
+    sceneryObjects = [];
+    scenerySpawnTimer = 0;
+
     if (gameOverScreen) gameOverScreen.style.display = 'none';
 }
 
