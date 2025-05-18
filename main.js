@@ -917,7 +917,7 @@ function loadGLTFModel() {
         // playerGroup.userData.aabb.setFromObject(playerGroup); 
         // console.log("DEBUG LoadCB: Initial Player AABB computed:", playerGroup.userData.aabb.min, playerGroup.userData.aabb.max);
 
-
+        
         // Ensure playerGroup's matrix is updated before logging its position
         playerGroup.updateMatrixWorld(true); 
         console.log('DEBUG LoadCB: playerGroup.position after model add & transform:', playerGroup.position.x.toFixed(2), playerGroup.position.y.toFixed(2), playerGroup.position.z.toFixed(2));
@@ -1190,21 +1190,10 @@ function spawnObstacle() {
             }
         } else {
             // console.log(`DEBUG: Normal spawn: Potential open lane ${potentialOpenLane} NOT clear. Spawning one truck.`);
-            // Fallback: spawn only one truck in one of the initially selected lanes for the wave,
-            // choosing the one furthest from the player.
+            // Fallback: spawn only one truck in one of the initially selected lanes
             if (obstacles.length < MAX_ACTIVE_OBSTACLES) {
-                let laneToSpawnSingleTruckIn;
-                // Determine which of potentialLaneA or potentialLaneB is further from playerCurrentLaneIndex
-                const distA = Math.abs(potentialLaneA - playerCurrentLaneIndex);
-                const distB = Math.abs(potentialLaneB - playerCurrentLaneIndex);
-
-                if (distA >= distB) { // Prefer A if equidistant or A is further
-                    laneToSpawnSingleTruckIn = potentialLaneA;
-                } else { // B is further
-                    laneToSpawnSingleTruckIn = potentialLaneB;
-                }
-                chosenLaneIndices.push(laneToSpawnSingleTruckIn);
-                // console.log(`DEBUG: Fallback single spawn in lane: ${laneToSpawnSingleTruckIn} (furthest from player in lane ${playerCurrentLaneIndex})`);
+                 // Randomly pick between potentialLaneA or potentialLaneB for the single spawn
+                chosenLaneIndices.push(Math.random() < 0.5 ? potentialLaneA : potentialLaneB);
             }
         }
         // console.log(`DEBUG: Normal spawn: Attempting to spawn in lanes ${chosenLaneIndices.join(', ')}`);

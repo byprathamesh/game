@@ -19,6 +19,9 @@
       background: #000;
       overflow: hidden;
       font-family: 'Press Start 2P', 'VT323', 'Consolas', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     body {
       overflow: hidden;
@@ -42,18 +45,9 @@
       letter-spacing: 2px;
     }
     #gameContainer {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 100vw;
-      height: 100vh;
-      max-width: 440px;
-      max-height: 90vh;
-      aspect-ratio: 9/16;
-      background: #222;
-      box-shadow: 0 0 0 8px #181818;
-      border: 4px solid #444;
+      width: 100%;
+      height: 100%;
+      background: #000;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -62,14 +56,8 @@
     }
     #gameCanvas {
       display: block;
-      background: #222;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
-      width: 100%;
-      height: auto;
-      max-width: 420px;
-      max-height: 84vh;
-      aspect-ratio: 2/3;
     }
     #hud {
       position: absolute;
