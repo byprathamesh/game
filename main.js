@@ -745,6 +745,9 @@ function initThreeJS() {
 
       // --- Width Calculation for Collision ---
       // The model is now scaled, centered, and added to playerGroup.
+      // Force update of world matrices before calculating the bounding box.
+      playerGroup.updateMatrixWorld(true); 
+
       // Calculate the bounding box from the playerGroup itself.
       const finalPlayerGroupBox = new THREE.Box3().setFromObject(playerGroup);
       const finalPlayerGroupSize = new THREE.Vector3();
