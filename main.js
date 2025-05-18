@@ -682,51 +682,78 @@ function initThreeJS() {
   loader.load(
     'models/rickshaw/scene.gltf',
     function (gltf) {
+      console.log("Raw GLTF data loaded:", gltf);
       const model = gltf.scene;
-      // Scale and position the model appropriately
-      const desiredHeight = 1.5 * vehicleScaleFactor; // Target height for the rickshaw model
-      const boundingBox = new THREE.Box3().setFromObject(model);
-      const currentHeight = boundingBox.max.y - boundingBox.min.y;
+      console.log("GLTF Scene object (before transforms):", model);
+
+      // Optional: Traverse to set properties like shadows, if needed later
+      // model.traverse(function (child) {
+      //   if (child.isMesh) {
+      //     child.castShadow = true;
+      //     child.receiveShadow = true;
+      //   }
+      // });
+
+      // --- Scaling ---
+      const desiredHeight = 1.5 * vehicleScaleFactor; 
+      const initialBox = new THREE.Box3().setFromObject(model);
+      const initialSize = new THREE.Vector3();
+      initialBox.getSize(initialSize);
+      console.log("Initial model size (before scaling):", initialSize);
+
       let scale = 1.0;
-      if (currentHeight > 0) { // Avoid division by zero if model has no height
-        scale = desiredHeight / currentHeight;
+      if (initialSize.y > 0.0001) { // Avoid division by zero/infinity
+        scale = desiredHeight / initialSize.y;
+      } else {
+        console.warn("Model initial height is zero or very small! Using default scale for height based on desiredHeight.");
+        scale = desiredHeight / 1.0; // Assume a nominal initial height of 1 if actual is unusable
       }
       model.scale.set(scale, scale, scale);
+      console.log("Applied scale factor:", scale);
 
-      // Recalculate bounding box after scaling for accurate positioning
-      boundingBox.setFromObject(model);
-      
-      // Center the model geometry first
+      // --- Positioning & Centering ---
+      // After scaling, get the new bounding box for centering and final positioning
+      const scaledBox = new THREE.Box3().setFromObject(model);
+      const scaledSize = new THREE.Vector3();
+      scaledBox.getSize(scaledSize);
+      console.log("Scaled model size:", scaledSize);
+
       const center = new THREE.Vector3();
-      boundingBox.getCenter(center);
-      model.position.sub(center); // Moves the model so its geometric center is at the playerGroup origin
+      scaledBox.getCenter(center); // Get center of the scaled bounding box
       
-      // Now, position the group so the model's new bottom (after centering) is at ground level + clearance
-      // Re-calculate bounding box as model position within playerGroup changed
-      const tempPlayerGroup = new THREE.Group();
-      tempPlayerGroup.add(model.clone()); // Use a clone to avoid modifying the playerGroup directly yet for this calculation
-      const centeredBox = new THREE.Box3().setFromObject(tempPlayerGroup);
-      model.position.y = -centeredBox.min.y + (0.1 * vehicleScaleFactor); // Ground clearance
+      // Apply offsets to the model's position to effectively move its geometric center to its own origin (0,0,0)
+      model.position.x -= center.x;
+      model.position.y -= center.y;
+      model.position.z -= center.z;
+      
+      // Now that the model's geometry is centered around its local origin,
+      // its new lowest point in its own Y-axis is at -scaledSize.y / 2.
+      // We want to lift it so this lowest point is at groundClearance.
+      const groundClearance = 0.05 * vehicleScaleFactor; // Small clearance
+      model.position.y += (scaledSize.y / 2) + groundClearance;
+      console.log("Final model local position set to:", model.position);
 
+      // Clear previous player group children (e.g., old geometric parts) and add the new model
       while(playerGroup.children.length > 0){ 
         playerGroup.remove(playerGroup.children[0]); 
       }
-      playerGroup.add(model); // Add the loaded GLTF model with adjusted position
+      playerGroup.add(model); 
 
-      // Update playerRickshawScaledBodyWidth based on the loaded model
-      // Use a slight delay to ensure bounding box is updated after model is fully processed and added
-      setTimeout(() => {
-        const modelBox = new THREE.Box3().setFromObject(playerGroup); 
-        let calculatedWidth = modelBox.max.x - modelBox.min.x;
-        
-        if (!calculatedWidth || calculatedWidth === 0 || isNaN(calculatedWidth)) { 
-            playerRickshawScaledBodyWidth = 1.8; // Default width
-            console.warn(`Loaded model width is invalid (${calculatedWidth}), using fallback width: ${playerRickshawScaledBodyWidth}`);
-        } else {
-            playerRickshawScaledBodyWidth = calculatedWidth;
-        }
-        console.log('Rickshaw model processed. Final calculated width:', playerRickshawScaledBodyWidth);
-      }, 100); // 100ms delay, can be adjusted
+      // --- Width Calculation for Collision ---
+      // Calculate bounding box for the playerGroup, which now contains the fully transformed model
+      const finalPlayerGroupBox = new THREE.Box3().setFromObject(playerGroup);
+      const finalPlayerGroupSize = new THREE.Vector3();
+      finalPlayerGroupBox.getSize(finalPlayerGroupSize);
+      
+      console.log("Final playerGroup BoundingBox Size (for collision width):", finalPlayerGroupSize);
+
+      if (finalPlayerGroupSize.x > 0.0001 && !isNaN(finalPlayerGroupSize.x)) {
+          playerRickshawScaledBodyWidth = finalPlayerGroupSize.x;
+      } else {
+          playerRickshawScaledBodyWidth = 1.8; // Fallback width
+          console.warn(`Calculated collision width (${finalPlayerGroupSize.x}) is invalid or zero. Using fallback width: ${playerRickshawScaledBodyWidth}`);
+      }
+      console.log('Rickshaw model processed. Final collision width:', playerRickshawScaledBodyWidth);
 
     },
     undefined, // onProgress callback (optional)
