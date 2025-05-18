@@ -19,8 +19,8 @@ const initialObstacleSpeed = 0.3; // Slightly reduced initial speed
 let currentObstacleSpeed = initialObstacleSpeed;
 const maxObstacleSpeed = 1.0; // Cap for obstacle speed
 
-let obstacleSpawnTimer = initialObstacleSpawnInterval / 60.0; // MODIFIED - Initial delay
-const initialObstacleSpawnInterval = 120; // Approx 2 seconds at 60fps
+const initialObstacleSpawnInterval = 120; // MODIFIED - Moved up
+let obstacleSpawnTimer = initialObstacleSpawnInterval / 60.0; // Uses the above const
 let currentObstacleSpawnInterval = initialObstacleSpawnInterval;
 const minObstacleSpawnInterval = 45; // Minimum interval (approx 0.75 seconds)
 
@@ -62,8 +62,8 @@ const truckHeadlightMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0,
 const truckTaillightMaterial = new THREE.MeshStandardMaterial({ color: 0xFF0000, emissive: 0x880000 });
 
 let sceneryObjects = [];
-let scenerySpawnTimer = scenerySpawnInterval / 60.0; // MODIFIED - Initial delay
-const scenerySpawnInterval = 90; // Spawn scenery a bit more frequently than obstacles
+const scenerySpawnInterval = 90; // MODIFIED - Moved up
+let scenerySpawnTimer = scenerySpawnInterval / 60.0; // Uses the above const
 const scenerySpeedFactor = 0.95; // Scenery moves slightly slower than road for parallax
 
 // Scenery Colors & Types
