@@ -718,6 +718,15 @@ function initThreeJS() {
       scaledBox.getSize(scaledSize);
       console.log("Scaled model size:", scaledSize);
 
+      // Set playerRickshawScaledBodyWidth using the correctly calculated scaledSize.x
+      if (scaledSize.x > 0.0001 && !isNaN(scaledSize.x)) {
+          playerRickshawScaledBodyWidth = scaledSize.x;
+      } else {
+          playerRickshawScaledBodyWidth = 1.8; // Fallback width
+          console.warn(`Scaled model width (scaledSize.x: ${scaledSize.x}) is invalid or zero. Using fallback width: ${playerRickshawScaledBodyWidth}`);
+      }
+      console.log('Rickshaw model scaled. Collision width set to:', playerRickshawScaledBodyWidth);
+
       const center = new THREE.Vector3();
       scaledBox.getCenter(center); // Get center of the scaled bounding box
       
@@ -742,26 +751,6 @@ function initThreeJS() {
       if (model.children.length > 0) {
         console.log("First child of model - Name:", model.children[0].name, "Type:", model.children[0].type);
       }
-
-      // --- Width Calculation for Collision ---
-      // The model is now scaled, centered, and added to playerGroup.
-      // Force update of world matrices before calculating the bounding box.
-      playerGroup.updateMatrixWorld(true); 
-
-      // Calculate the bounding box from the playerGroup itself.
-      const finalPlayerGroupBox = new THREE.Box3().setFromObject(playerGroup);
-      const finalPlayerGroupSize = new THREE.Vector3();
-      finalPlayerGroupBox.getSize(finalPlayerGroupSize);
-      
-      console.log("Final BoundingBox Size (from playerGroup) for collision width:", finalPlayerGroupSize);
-
-      if (finalPlayerGroupSize.x > 0.0001 && !isNaN(finalPlayerGroupSize.x)) {
-          playerRickshawScaledBodyWidth = finalPlayerGroupSize.x;
-      } else {
-          playerRickshawScaledBodyWidth = 1.8; // Fallback width
-          console.warn(`Calculated collision width from playerGroup (size: ${finalPlayerGroupSize.x}) is invalid or zero. Using fallback width: ${playerRickshawScaledBodyWidth}`);
-      }
-      console.log('Rickshaw model processed. Final collision width:', playerRickshawScaledBodyWidth);
 
     },
     undefined, // onProgress callback (optional)
